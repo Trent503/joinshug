@@ -18,7 +18,9 @@
 <link rel="apple-touch-icon" href="assets/img/apple-touch-icon.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="preload" as="image" href="assets/img/hero-crew-900.jpg" imagesrcset="assets/img/hero-crew-900.jpg 900w, assets/img/hero-crew-1600.jpg 1600w" imagesizes="(max-width:900px) 92vw, 460px" fetchpriority="high">
+<!-- Hero photo sits beside the h1 on desktop (above the fold) but below the
+     lead form on mobile. Preload only where it is actually the LCP element. -->
+<link rel="preload" as="image" media="(min-width:901px)" href="assets/img/hero-crew-1600.jpg" fetchpriority="high">
 <link href="https://fonts.googleapis.com/css2?family=Anton&family=Bricolage+Grotesque:opsz,wght@12..96,700;12..96,800&family=Hanken+Grotesk:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="assets/site.css">
 <!-- ANALYTICS — Cloudflare Web Analytics. Paste your token below and uncomment.
@@ -104,7 +106,7 @@
             <img src="assets/img/hero-crew-900.jpg"
                  srcset="assets/img/hero-crew-900.jpg 900w, assets/img/hero-crew-1600.jpg 1600w"
                  sizes="(max-width:900px) 92vw, 460px"
-                 width="900" height="601" fetchpriority="high" decoding="async"
+                 width="900" height="601" decoding="async"
                  alt="Two crew members in company shirts high-fiving in front of a wrapped work truck outside a stone home."
                  style="display:block;width:100%;height:min(460px,58vw);object-fit:cover;">
           </div>
