@@ -62,7 +62,8 @@ def head(depth, title, desc, path, og_image="assets/img/og-default.jpg",
 """
 
 
-def nav(depth, current=""):
+def nav(depth, current="", cta_href="#apply"):
+    """cta_href: pages with no #apply section (legal pages) must pass a real URL."""
     p = P(depth)
     def link(href, label, key):
         cur = ' aria-current="page"' if key == current else ""
@@ -74,7 +75,7 @@ def nav(depth, current=""):
     {link("services/websites/", "Services", "services")}
     {link("pricing/", "Pricing", "pricing")}
     {link("about/", "About", "about")}
-    <a class="navcta" href="#apply">Get My Call</a>
+    <a class="navcta" href="{cta_href}">Get My Call</a>
   </div>
 </nav>
 """
@@ -250,12 +251,65 @@ def footer(depth):
 """
 
 
+def toc(entries):
+    """entries: list of (anchor_id, label). Renders the in-post table of contents."""
+    items = "\n".join(f'    <li><a href="#{a}">{l}</a></li>' for a, l in entries)
+    return ('<nav class="toc" aria-label="On this page">\n'
+            '  <b>On this page</b>\n  <ol>\n' + items + "\n  </ol>\n</nav>\n")
+
+
+def article_ld(headline, desc, slug, published, modified=None):
+    return ('<script type="application/ld+json">\n'
+            '{"@context":"https://schema.org","@type":"Article","headline":%s,'
+            '"description":%s,"datePublished":"%s","dateModified":"%s",'
+            '"image":"%s/assets/img/og-default.jpg",'
+            '"author":{"@id":"%s/about/#trent"},'
+            '"publisher":{"@id":"%s"},'
+            '"mainEntityOfPage":{"@type":"WebPage","@id":"%s/blog/%s/"},'
+            '"inLanguage":"en-US"}\n</script>\n'
+            % (_j(headline), _j(desc), published, modified or published,
+               SITE, SITE, ORG, SITE, slug))
+
+
+def post(slug, title, desc, h1, dek, published, published_label, entries, prose,
+         cta_heading="Want this handled for you?",
+         cta_sub="Drop your name and number. I'll call you personally within 24 hours "
+                 "— free, 15 minutes, no card."):
+    """Assemble a blog post. `prose` is the article body HTML (h2/p/ul)."""
+    import os
+    body = f"""
+  <article class="sec bg-bone">
+    <div class="wrap">
+      <p class="post-meta">Blog · {published_label}</p>
+      <h1 class="h-md" style="margin:12px 0 0;max-width:24ch;">{h1}</h1>
+      <p class="lede mt-3">{dek}</p>
+    </div>
+  </article>
+
+  <section class="bg-white" style="padding:clamp(40px,6vw,72px) var(--gut) clamp(56px,8vw,96px);border-top:1px solid var(--line);">
+    <div class="wrap prose">
+{toc(entries)}
+{prose}
+    </div>
+  </section>
+{cta(2, "Blog — " + title, cta_heading, cta_sub)}
+"""
+    return write(
+        os.path.join("blog", slug, "index.html"), 2, title + " | Shug", desc,
+        f"/blog/{slug}/", body,
+        trail=[("Blog", "blog/"), (h1, None)],
+        ld=breadcrumb_ld([("Blog", "/blog/"), (h1, f"/blog/{slug}/")])
+           + article_ld(h1, desc, slug, published),
+    )
+
+
 def write(path, depth, title, desc, canonical, body, trail=None, ld="",
-          current="", preload=None, og_image="assets/img/og-default.jpg"):
+          current="", preload=None, og_image="assets/img/og-default.jpg",
+          cta_href="#apply"):
     """Assemble and write one page. `body` is everything inside <main>."""
     import os
     html = head(depth, title, desc, canonical, og_image=og_image, preload=preload)
-    html += nav(depth, current)
+    html += nav(depth, current, cta_href)
     if trail:
         html += crumbs(depth, trail)
     html += '\n<main id="main">\n' + body + "\n</main>\n"

@@ -1,0 +1,79 @@
+# joinshug.com — static site, no build step.
+# The repo root IS the deployable folder. Nothing to compile.
+
+[build]
+  publish = "."
+  command = ""
+
+# ---------------------------------------------------------------------------
+# Headers
+# ---------------------------------------------------------------------------
+
+# Hashed/versioned assets could be immutable, but site.css and site.js are not
+# fingerprinted — so cache them for a day and revalidate rather than a year.
+[[headers]]
+  for = "/assets/*"
+  [headers.values]
+    Cache-Control = "public, max-age=86400, must-revalidate"
+
+# Images are content-stable; safe to cache hard.
+[[headers]]
+  for = "/assets/img/*"
+  [headers.values]
+    Cache-Control = "public, max-age=31536000, immutable"
+
+[[headers]]
+  for = "/*"
+  [headers.values]
+    X-Content-Type-Options = "nosniff"
+    X-Frame-Options = "DENY"
+    Referrer-Policy = "strict-origin-when-cross-origin"
+    Permissions-Policy = "geolocation=(), microphone=(), camera=(), interest-cohort=()"
+    Strict-Transport-Security = "max-age=31536000; includeSubDomains; preload"
+    Content-Security-Policy = "default-src 'self'; script-src 'self' https://static.cloudflareinsights.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'self' https://formspree.io https://cloudflareinsights.com; form-action 'self' https://formspree.io; frame-ancestors 'none'; base-uri 'self'"
+
+# ---------------------------------------------------------------------------
+# Clean URLs — canonical form is the trailing slash.
+# ---------------------------------------------------------------------------
+
+[[redirects]]
+  from = "/pricing"
+  to = "/pricing/"
+  status = 301
+[[redirects]]
+  from = "/about"
+  to = "/about/"
+  status = 301
+[[redirects]]
+  from = "/contact"
+  to = "/contact/"
+  status = 301
+[[redirects]]
+  from = "/guarantee"
+  to = "/guarantee/"
+  status = 301
+[[redirects]]
+  from = "/blog"
+  to = "/blog/"
+  status = 301
+[[redirects]]
+  from = "/privacy"
+  to = "/privacy/"
+  status = 301
+[[redirects]]
+  from = "/terms"
+  to = "/terms/"
+  status = 301
+[[redirects]]
+  from = "/services"
+  to = "/services/"
+  status = 301
+[[redirects]]
+  from = "/industries"
+  to = "/industries/"
+  status = 301
+
+# NOTE: deliberately no "/services/*" splat rule. It would also match
+# "/services/" itself (splat = "") and redirect it to "/services/" forever.
+# Netlify already resolves /services/websites -> /services/websites/ for
+# directories that contain an index.html, so the wildcard buys nothing.

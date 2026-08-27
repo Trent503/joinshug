@@ -1,0 +1,5 @@
+# joinshug.com
+User-agent: *
+Allow: /
+
+Sitemap: https://joinshug.com/sitemap.xml

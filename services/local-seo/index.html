@@ -38,7 +38,7 @@
     <a class="navcta" href="#apply">Get My Call</a>
   </div>
 </nav>
-<nav class="crumbs" aria-label="Breadcrumb"><ol><li><a href="../../">Home</a></li><li><a href="../../services/websites/">Services</a></li><li><span aria-current="page">Local SEO</span></li></ol></nav>
+<nav class="crumbs" aria-label="Breadcrumb"><ol><li><a href="../../">Home</a></li><li><a href="../../services/">Services</a></li><li><span aria-current="page">Local SEO</span></li></ol></nav>
 
 <main id="main">
 
@@ -146,6 +146,13 @@
   </section>
 
 
+  <!-- TODO: geo — service-area landing pages slot in here.
+       Scope is national by decision (2026-08-27); no city copy anywhere on the site.
+       When real service areas are confirmed, add /areas/<city>/ pages, link them
+       from this section, set Service.areaServed in the JSON-LD below to those
+       cities instead of {"@type":"Country","name":"United States"}, and add them
+       to the footer nav. Do not invent locations. -->
+
 </main>
 
 <footer class="foot">
@@ -210,7 +217,7 @@
 {"@context":"https://schema.org","@type":"Organization","@id":"https://joinshug.com/#org","name":"Shug","url":"https://joinshug.com/","logo":"https://joinshug.com/assets/img/logo-512.png","slogan":"Blue-collar trade. White-collar profit.","founder":{"@type":"Person","@id":"https://joinshug.com/about/#trent","name":"Trent Delgadillo","jobTitle":"Founder"}}
 </script>
 <script type="application/ld+json">
-{"@context":"https://schema.org","@type":"BreadcrumbList","itemListElement":[{"@type":"ListItem","position":1,"name":"Home","item":"https://joinshug.com/"},{"@type":"ListItem","position":2,"name":"Services","item":"https://joinshug.com/services/websites/"},{"@type":"ListItem","position":3,"name":"Local SEO","item":"https://joinshug.com/services/local-seo/"}]}
+{"@context":"https://schema.org","@type":"BreadcrumbList","itemListElement":[{"@type":"ListItem","position":1,"name":"Home","item":"https://joinshug.com/"},{"@type":"ListItem","position":2,"name":"Services","item":"https://joinshug.com/services/"},{"@type":"ListItem","position":3,"name":"Local SEO","item":"https://joinshug.com/services/local-seo/"}]}
 </script>
 <script type="application/ld+json">
 {"@context":"https://schema.org","@type":"FAQPage","mainEntity":[{"@type":"Question","name":"How long does local SEO actually take?","acceptedAnswer":{"@type":"Answer","text":"Google Business Profile work can move the map pack in two to six weeks. Organic rankings for service pages take three to six months to settle. Anyone promising page one in thirty days is either lying or targeting keywords nobody searches."}},{"@type":"Question","name":"What is the map pack and why does it matter more than the blue links?","acceptedAnswer":{"@type":"Answer","text":"The map pack is the three-business block with the map above the normal results. On a phone it takes up most of the first screen. For local service searches it gets the majority of the clicks, which means ranking fourth in the map pack is closer to invisible than to second place."}},{"@type":"Question","name":"Do I need a physical address to rank locally?","acceptedAnswer":{"@type":"Answer","text":"You need a valid business address that Google can verify, but it can be a service-area business — you can hide the address and set a radius. What you cannot do is invent locations or rent a mailbox in a city you do not serve. Google catches it and the penalty is worse than never ranking."}},{"@type":"Question","name":"What happens if I stop?","acceptedAnswer":{"@type":"Answer","text":"The rankings you earned do not vanish overnight, but they decay. Competitors keep publishing, keep collecting reviews, and keep getting fresher. SEO is a position you hold, not a project you finish."}},{"@type":"Question","name":"Is this included or is it extra?","acceptedAnswer":{"@type":"Answer","text":"Local SEO starts at The Foundation, $697 a month. Rank tracking and monthly reporting come with it. The Monopoly at $1,297 adds deep Google Business Profile optimization and managed Local Services Ads on top."}}]}
