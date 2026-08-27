@@ -19,44 +19,70 @@ import sys
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 IMG = os.path.join(ROOT, "assets", "img")
 
-ALT = ("Trent Delgadillo in a Blue Heron Services shirt beside his pressure "
-       "washing truck.")
+ALT = ("Trent Delgadillo, soaked from a job, beside his Blue Heron pressure "
+       "washing truck and hose reels.")
 
 PICTURE = """<img src="{p}assets/img/trent-600.jpg"
-             srcset="{p}assets/img/trent-600.jpg 600w, {p}assets/img/trent-1200.jpg 1200w"
+             srcset="{p}assets/img/trent-600.jpg {w1}w, {p}assets/img/trent-1200.jpg {w2}w"
              sizes="(max-width:900px) 92vw, 380px"
-             width="600" height="800" loading="lazy" decoding="async"
+             width="{w1}" height="{h1}" loading="lazy" decoding="async"
              alt="{alt}"
-             style="display:block;width:100%;max-width:380px;border-radius:18px;box-shadow:0 24px 48px rgba(33,30,27,0.18);">"""
+             style="display:block;width:100%;max-width:{maxw}px;border-radius:18px;box-shadow:0 24px 48px rgba(33,30,27,0.18);">"""
+
+
+def dims(path):
+    """Actual pixel dimensions of a file on disk."""
+    out = subprocess.run(["sips", "-g", "pixelWidth", "-g", "pixelHeight", path],
+                         check=True, capture_output=True, text=True).stdout
+    g = dict(l.strip().split(": ") for l in out.splitlines() if ": " in l)
+    return int(g["pixelWidth"]), int(g["pixelHeight"])
 
 
 def sips(src, dst, size, quality):
+    # -Z fits the LONGEST side to `size`. For a portrait photo that caps the
+    # height, so the resulting width is smaller than `size` — never assume the
+    # output is `size` wide. Read the real dimensions back instead.
     subprocess.run(
         ["sips", "-Z", str(size), "-s", "format", "jpeg",
          "-s", "formatOptions", str(quality), src, "--out", dst],
         check=True, capture_output=True)
-    return os.path.getsize(dst) // 1024
+    w, h = dims(dst)
+    return w, h, os.path.getsize(dst) // 1024
 
 
-def patch(page, depth):
-    """Replace the TD initials circle with the portrait, above the name block."""
+# The homepage kept the original design's inline-styled founder block; /about/
+# was built on the class-based chrome. They need different anchors — a single
+# marker silently matched only the homepage and skipped the story page.
+ANCHORS = [
+    # page, depth, regex, insert, max-width
+    ("index.html", 0,
+     r'<div style="display:flex;align-items:center;gap:14px;margin:30px 0 0;">',
+     "before", 380),
+    ("about/index.html", 1,
+     r'<p class="lede mt-3">.*?</p>',
+     "after", 420),
+]
+
+
+def patch(page, depth, pattern, where, maxw, w1, h1, w2):
     path = os.path.join(ROOT, page)
     s = open(path).read()
     if "trent-600.jpg" in s:
         print(f"  {page}: already has the portrait, left alone")
-        return
-    p = "../" * depth
-    pic = PICTURE.format(p=p, alt=ALT)
+        return True
 
-    # The name block starts with the TD avatar span; insert the photo before it.
-    marker = ('<div style="display:flex;align-items:center;gap:14px;'
-              'margin:30px 0 0;">')
-    if marker not in s:
-        print(f"  {page}: founder block not found, skipped")
-        return
-    s = s.replace(marker, f'<div style="margin:32px 0 0;">{pic}</div>\n      ' + marker, 1)
+    m = re.search(pattern, s, re.S)
+    if not m:
+        print(f"  {page}: ANCHOR NOT FOUND -- portrait not added")
+        return False
+
+    pic = PICTURE.format(p="../" * depth, alt=ALT, w1=w1, h1=h1, w2=w2, maxw=maxw)
+    block = f'<div style="margin:32px 0 0;">{pic}</div>'
+    at = m.start() if where == "before" else m.end()
+    s = s[:at] + (block + "\n      " if where == "before" else "\n      " + block) + s[at:]
     open(path, "w").write(s)
     print(f"  {page}: portrait added")
+    return True
 
 
 def main(argv):
@@ -69,12 +95,15 @@ def main(argv):
         return 1
 
     os.makedirs(IMG, exist_ok=True)
-    a = sips(src, os.path.join(IMG, "trent-1200.jpg"), 1200, 60)
-    b = sips(src, os.path.join(IMG, "trent-600.jpg"), 600, 62)
-    print(f"assets/img/trent-1200.jpg ({a} KB), trent-600.jpg ({b} KB)")
+    w2, h2, kb2 = sips(src, os.path.join(IMG, "trent-1200.jpg"), 1200, 60)
+    w1, h1, kb1 = sips(src, os.path.join(IMG, "trent-600.jpg"), 600, 62)
+    print(f"assets/img/trent-1200.jpg  {w2}x{h2}  {kb2} KB")
+    print(f"assets/img/trent-600.jpg   {w1}x{h1}  {kb1} KB")
 
-    patch("about/index.html", 1)
-    patch("index.html", 0)
+    ok = [patch(pg, d, pat, wh, mw, w1, h1, w2) for pg, d, pat, wh, mw in ANCHORS]
+    if not all(ok):
+        print("\nSome pages were not patched. Fix ANCHORS before committing.")
+        return 1
 
     print("\nnow run:  python3 tools/check.py")
     return 0
