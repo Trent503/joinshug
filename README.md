@@ -29,7 +29,7 @@ only resolve over HTTP.
 index.html                          Homepage
 404.html                            Styled 404 (noindex, root-absolute links)
 robots.txt  sitemap.xml             Crawl + index
-netlify.toml                        Headers, caching, clean-URL redirects
+_headers  _redirects                Cloudflare Pages: security headers, caching, clean URLs
 assets/site.css                     Every style on the site
 assets/site.js                      Forms, sticky bar, nudge, stat counters
 assets/img/                         Photos, logo, favicons, OG image
@@ -38,7 +38,7 @@ industries/     + 5 subpages        Roofing, plumbing, HVAC, exterior cleaning, 
 pricing/ about/ guarantee/ contact/
 privacy/ terms/
 blog/           + 3 posts
-tools/                              Maintenance scripts (never shipped to visitors)
+tools/                              Maintenance scripts (redirected away, see Tools)
 ```
 
 Every page is a directory containing `index.html`, so every URL is clean and
@@ -71,7 +71,9 @@ them were darkened from the source design to pass WCAG AA — see
 
 ## Tools
 
-All zero-dependency Python 3. None of it ships to visitors.
+All zero-dependency Python 3. Cloudflare Pages deploys every file in the repo,
+so `tools/` is technically reachable — it holds no secrets, and `_redirects`
+sends `/tools/*` to the homepage while `robots.txt` disallows it.
 
 ```bash
 python3 tools/check.py       # pre-flight: links, titles, schema, h1s, images
@@ -121,23 +123,20 @@ it actually runs. Port it if you prefer.
 
 ## Analytics
 
-Cloudflare Web Analytics is wired but **commented out**. Every page has this
-block in `<head>`:
+Cloudflare Web Analytics — cookie-free, so no consent banner, which is why there
+isn't one.
 
-```html
-<!-- ANALYTICS — Cloudflare Web Analytics. Paste your token below and uncomment.
-<script defer src="https://static.cloudflareinsights.com/beacon.min.js"
-        data-cf-beacon='{"token": "YOUR_TOKEN_HERE"}'></script>
-     END ANALYTICS -->
-```
+**Turn it on in the dashboard, not in the code.** Cloudflare Pages project →
+**Settings** → **Web Analytics** → **Enable**. Pages injects the beacon at the
+edge. No token in the repo, nothing to keep in sync across 23 pages.
 
-Get a token at **dash.cloudflare.com → Analytics → Web Analytics → Add a site**,
-paste it into every page, and uncomment. It is cookie-free, so it needs no
-consent banner — which is why there isn't one.
+Every page still carries a commented `<!-- ANALYTICS -->` block as a fallback if
+the site ever moves off Cloudflare Pages. Paste a token there and uncomment.
 
-The Content-Security-Policy in `netlify.toml` already allows
-`static.cloudflareinsights.com`. Adding any other third-party script means
-updating that CSP too, or the browser will block it silently.
+`_headers` already allows `static.cloudflareinsights.com` in `script-src` and
+`cloudflareinsights.com` in `connect-src`. **Any other third-party script needs
+that CSP updated too, or the browser blocks it silently** — check the console
+before assuming a tag is broken.
 
 ---
 
@@ -162,38 +161,50 @@ visible orange focus rings, visually-hidden `<label>`s on every form field, and
 
 ---
 
-## Deploying to Netlify
+## Deploying to Cloudflare Pages
 
-`netlify.toml` sets `publish = "."` with no build command.
+No build step. Cloudflare Pages serves the repo root as-is.
 
 1. Push to GitHub.
-2. Netlify → **Add new site** → **Import an existing project** → pick the repo.
-3. Accept the settings from `netlify.toml`. Deploy.
-4. Netlify → **Domain management** → add `joinshug.com`.
+2. Cloudflare dashboard → **Workers & Pages** → **Create** → **Pages** →
+   **Connect to Git** → pick the repo.
+3. Build settings:
+   - **Framework preset:** None
+   - **Build command:** *(leave empty)*
+   - **Build output directory:** `/`
+4. **Save and Deploy.** You get a `<project>.pages.dev` URL immediately.
+5. **Custom domains** → add `joinshug.com` and `www.joinshug.com`.
+6. **Settings → Web Analytics → Enable.**
+
+`_headers` and `_redirects` are read from the output directory on every deploy.
+Cloudflare strips both from the served output — they configure the edge, they
+are not public files.
 
 ### DNS
 
-Point `joinshug.com` at Netlify. Either delegate the whole zone:
+If `joinshug.com` is already on Cloudflare DNS, adding the custom domain in
+Pages creates the records automatically. Nothing to do by hand.
 
-```
-NS  joinshug.com  ->  dns1.p0X.nsone.net.
-                      dns2.p0X.nsone.net.
-                      dns3.p0X.nsone.net.
-                      dns4.p0X.nsone.net.
-```
+If the domain is registered elsewhere, point its nameservers at the pair
+Cloudflare gives you, then add the custom domain in Pages.
 
-(Netlify gives you the exact `p0X` values.) Or keep your registrar's DNS:
+Verify after it propagates:
 
-```
-A      joinshug.com      ->  75.2.60.5
-CNAME  www.joinshug.com  ->  <your-site>.netlify.app.
+```bash
+curl -sI https://joinshug.com/ | grep -i -E 'strict-transport|content-security|x-frame'
+curl -sI https://joinshug.com/pricing | grep -i -E '^HTTP|^location'   # expect 301 -> /pricing/
+curl -s  https://joinshug.com/sitemap.xml | head -3
 ```
 
-Enable HTTPS in Netlify after DNS propagates. The `Strict-Transport-Security`
-header in `netlify.toml` includes `preload`, so do not enable it until HTTPS is
-confirmed working on the apex domain.
+### HSTS
 
----
+`_headers` sets `Strict-Transport-Security: max-age=31536000; includeSubDomains`
+— deliberately **without** `preload`. Do not add `preload` until HTTPS is
+confirmed working on the apex *and* every subdomain you will ever use. Preload
+submission is effectively irreversible for months.
+
+Cloudflare can also manage HSTS at **SSL/TLS → Edge Certificates → HSTS**. Use
+one or the other, not both.
 
 ## What still needs a human
 

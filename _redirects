@@ -1,0 +1,38 @@
+# joinshug.com — Cloudflare Pages redirects
+#
+# Canonical URL form is the trailing slash: https://joinshug.com/pricing/
+# Cloudflare Pages already normalises /pricing -> /pricing/ for directories
+# containing an index.html, so these are belt-and-braces for anything linked
+# without the slash from off-site.
+
+/pricing              /pricing/              301
+/about                /about/                301
+/contact              /contact/              301
+/guarantee            /guarantee/            301
+/blog                 /blog/                 301
+/privacy              /privacy/              301
+/terms                /terms/                301
+/services             /services/             301
+/industries           /industries/           301
+
+/services/websites    /services/websites/    301
+/services/local-seo   /services/local-seo/   301
+/services/google-ads  /services/google-ads/  301
+/services/automations /services/automations/ 301
+
+/industries/roofing            /industries/roofing/            301
+/industries/plumbing           /industries/plumbing/           301
+/industries/hvac               /industries/hvac/               301
+/industries/exterior-cleaning  /industries/exterior-cleaning/  301
+/industries/landscaping        /industries/landscaping/        301
+
+/blog/trades-website-that-books-jobs    /blog/trades-website-that-books-jobs/    301
+/blog/get-more-google-reviews           /blog/get-more-google-reviews/           301
+/blog/missed-calls-are-your-biggest-leak /blog/missed-calls-are-your-biggest-leak/ 301
+
+# NOTE: no "/services/*" style splat rules. A splat also matches "/services/"
+# itself (splat = "") and redirects it to "/services/" forever.
+
+# Cloudflare Pages deploys every file in the repo, including tools/. Those are
+# maintenance scripts with no secrets in them, but they are not part of the site.
+/tools/*  /  301

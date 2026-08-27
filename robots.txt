@@ -2,4 +2,7 @@
 User-agent: *
 Allow: /
 
+# Maintenance scripts, not site content. Also redirected away in _redirects.
+Disallow: /tools/
+
 Sitemap: https://joinshug.com/sitemap.xml

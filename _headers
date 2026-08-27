@@ -1,0 +1,25 @@
+# joinshug.com — Cloudflare Pages headers
+#
+# Rules are matched in order. The globs below are deliberately NON-OVERLAPPING
+# so no path matches two Cache-Control rules — if two rules set the same header,
+# which one wins is not worth relying on. Keep it that way when adding rules.
+
+/*
+  X-Content-Type-Options: nosniff
+  X-Frame-Options: DENY
+  Referrer-Policy: strict-origin-when-cross-origin
+  Permissions-Policy: geolocation=(), microphone=(), camera=()
+  Strict-Transport-Security: max-age=31536000; includeSubDomains
+  Content-Security-Policy: default-src 'self'; script-src 'self' https://static.cloudflareinsights.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'self' https://formspree.io https://cloudflareinsights.com; form-action 'self' https://formspree.io; frame-ancestors 'none'; base-uri 'self'
+
+# site.css and site.js are not fingerprinted, so they must revalidate.
+# If you ever add a content hash to their filenames, bump these to immutable.
+/assets/site.css
+  Cache-Control: public, max-age=86400, must-revalidate
+
+/assets/site.js
+  Cache-Control: public, max-age=86400, must-revalidate
+
+# Images are content-stable — safe to cache hard.
+/assets/img/*
+  Cache-Control: public, max-age=31536000, immutable
