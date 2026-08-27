@@ -199,6 +199,9 @@ p{margin:0}
 
 /* --- PROSE (article + long-form pages) ---------------------------------- */
 .prose{font-size:17px;line-height:1.7;font-weight:450;color:var(--body);max-width:68ch}
+/* `.wrap.prose` on one element: keep the reading column flush left with the page
+   heroes instead of inheriting .wrap's auto-centering. */
+.wrap.prose,.wrap-wide.prose{margin-left:0;margin-right:auto}
 .prose>*+*{margin-top:20px}
 .prose h2{font-size:clamp(24px,3.6vw,34px);line-height:1.15;margin-top:48px;scroll-margin-top:80px}
 .prose h3{font-size:20px;line-height:1.25;margin-top:32px;letter-spacing:-0.015em}
