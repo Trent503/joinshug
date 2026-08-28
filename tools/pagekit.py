@@ -133,7 +133,7 @@ def org_ld():
     return ('<script type="application/ld+json">\n'
             '{"@context":"https://schema.org","@type":"Organization","@id":"%s",'
             '"name":"Shug","url":"%s/","logo":"%s/assets/img/logo-512.png",'
-            '"slogan":"Blue-collar trade. White-collar profit.",'
+            '"slogan":"Blue-collar trades. White-collar profits.",'
             '"founder":{"@type":"Person","@id":"%s/about/#trent","name":"Trent Delgadillo",'
             '"jobTitle":"Founder"}}\n</script>\n' % (ORG, SITE, SITE, SITE))
 
@@ -202,7 +202,7 @@ def footer(depth):
 <footer class="foot">
   <div class="foot-top">
     <a class="brand" href="{p}" style="padding:9px 16px;border-radius:10px;box-shadow:0 2px 0 #9C4420;" aria-label="Shug home"><span style="font-size:26px;">shug</span></a>
-    <p class="foot-tag">Blue-collar trade. White-collar profit.</p>
+    <p class="foot-tag">Blue-collar trades. White-collar profits.</p>
   </div>
   <nav class="foot-nav" aria-label="Footer">
     <div>
@@ -252,7 +252,7 @@ def footer(depth):
     </div>
   </nav>
   <div class="foot-base">
-    <p>joinshug.com — the online growth partner for blue-collar trades.</p>
+    <p>joinshug.com — the growth partner for blue-collar trades.</p>
     <p>© 2026 Shug · Trent Delgadillo</p>
   </div>
 </footer>
