@@ -24,8 +24,8 @@ ALT = ("Trent Delgadillo, soaked from a job, beside his Blue Heron pressure "
 
 PICTURE = """<img src="{p}assets/img/trent-600.jpg"
              srcset="{p}assets/img/trent-600.jpg {w1}w, {p}assets/img/trent-1200.jpg {w2}w"
-             sizes="(max-width:900px) 92vw, 380px"
-             width="{w1}" height="{h1}" loading="lazy" decoding="async"
+             sizes="(max-width:900px) 92vw, {maxw}px"
+             width="{w1}" height="{h1}" loading="{load}" decoding="async"
              alt="{alt}"
              style="display:block;width:100%;max-width:{maxw}px;border-radius:18px;box-shadow:0 24px 48px rgba(33,30,27,0.18);">"""
 
@@ -54,17 +54,17 @@ def sips(src, dst, size, quality):
 # was built on the class-based chrome. They need different anchors — a single
 # marker silently matched only the homepage and skipped the story page.
 ANCHORS = [
-    # page, depth, regex, insert, max-width
+    # page, depth, regex, insert, max-width, loading
     ("index.html", 0,
      r'<div style="display:flex;align-items:center;gap:14px;margin:30px 0 0;">',
-     "before", 380),
+     "before", 380, "lazy"),
     ("about/index.html", 1,
      r'<p class="lede mt-3">.*?</p>',
-     "after", 420),
+     "after", 420, "eager"),
 ]
 
 
-def patch(page, depth, pattern, where, maxw, w1, h1, w2):
+def patch(page, depth, pattern, where, maxw, load, w1, h1, w2):
     path = os.path.join(ROOT, page)
     s = open(path).read()
     if "trent-600.jpg" in s:
@@ -76,7 +76,8 @@ def patch(page, depth, pattern, where, maxw, w1, h1, w2):
         print(f"  {page}: ANCHOR NOT FOUND -- portrait not added")
         return False
 
-    pic = PICTURE.format(p="../" * depth, alt=ALT, w1=w1, h1=h1, w2=w2, maxw=maxw)
+    pic = PICTURE.format(p="../" * depth, alt=ALT, w1=w1, h1=h1, w2=w2,
+                         maxw=maxw, load=load)
     block = f'<div style="margin:32px 0 0;">{pic}</div>'
     at = m.start() if where == "before" else m.end()
     s = s[:at] + (block + "\n      " if where == "before" else "\n      " + block) + s[at:]
@@ -95,12 +96,16 @@ def main(argv):
         return 1
 
     os.makedirs(IMG, exist_ok=True)
-    w2, h2, kb2 = sips(src, os.path.join(IMG, "trent-1200.jpg"), 1200, 60)
-    w1, h1, kb1 = sips(src, os.path.join(IMG, "trent-600.jpg"), 600, 62)
+    # The large variant displays at 420 CSS px, so it is downscaled ~2x on
+    # retina and tolerates heavy compression. The small variant serves 1x
+    # screens at close to 1:1, where artifacts would show -- keep it higher.
+    w2, h2, kb2 = sips(src, os.path.join(IMG, "trent-1200.jpg"), 1200, 45)
+    w1, h1, kb1 = sips(src, os.path.join(IMG, "trent-600.jpg"), 600, 55)
     print(f"assets/img/trent-1200.jpg  {w2}x{h2}  {kb2} KB")
     print(f"assets/img/trent-600.jpg   {w1}x{h1}  {kb1} KB")
 
-    ok = [patch(pg, d, pat, wh, mw, w1, h1, w2) for pg, d, pat, wh, mw in ANCHORS]
+    ok = [patch(pg, d, pat, wh, mw, ld, w1, h1, w2)
+          for pg, d, pat, wh, mw, ld in ANCHORS]
     if not all(ok):
         print("\nSome pages were not patched. Fix ANCHORS before committing.")
         return 1
