@@ -120,6 +120,7 @@ def check(page):
                 err(page, f"dead in-page anchor {href}")
             continue
         target, _, frag = href.partition("#")
+        target = target.split("?")[0]   # drop ?v= cache stamps
         if not target:
             continue
         if target.startswith("/"):
@@ -156,12 +157,13 @@ def check(page):
                    "-- run tools/set-demo-number.py before deploying")
 
     # ---- assets referenced ----------------------------------------------
+    # site.css / site.js carry a ?v=<hash> cache stamp -- resolve the path only.
     for src in re.findall(r'(?:src|href)="((?:\.\./)*assets/[^"]+)"', s):
-        fs = os.path.normpath(os.path.join(base, src))
+        fs = os.path.normpath(os.path.join(base, src.split("?")[0]))
         if not os.path.exists(fs):
             err(page, f"missing asset {src}")
     for src in re.findall(r'(?:src|href)="(/assets/[^"]+)"', s):
-        if not os.path.exists(os.path.join(ROOT, src.lstrip("/"))):
+        if not os.path.exists(os.path.join(ROOT, src.split("?")[0].lstrip("/"))):
             err(page, f"missing asset {src}")
 
 
