@@ -149,6 +149,12 @@ def check(page):
                     if norm and norm not in visible:
                         err(page, f"FAQ {label} not in visible copy: {norm[:60]!r}")
 
+    # ---- unfilled placeholders -------------------------------------------
+    # A dead tel: link on the demo CTA is worse than no CTA, so make it loud.
+    if "tel:+15550000000" in s or "(555) 000-0000" in s:
+        warn(page, "demo phone number is still the placeholder "
+                   "-- run tools/set-demo-number.py before deploying")
+
     # ---- assets referenced ----------------------------------------------
     for src in re.findall(r'(?:src|href)="((?:\.\./)*assets/[^"]+)"', s):
         fs = os.path.normpath(os.path.join(base, src))

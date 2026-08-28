@@ -33,6 +33,7 @@ _headers  _redirects                Cloudflare Pages: security headers, caching,
 assets/site.css                     Every style on the site
 assets/site.js                      Forms, sticky bar, nudge, stat counters
 assets/img/                         Photos, logo, favicons, OG image
+agent/                              Shug Agent — 24/7 front desk (flagship product)
 services/       + 4 subpages        Websites, local SEO, Google Ads, automations
 industries/     + 5 subpages        Roofing, plumbing, HVAC, exterior cleaning, landscaping
 pricing/ about/ guarantee/ contact/
@@ -80,6 +81,7 @@ python3 tools/check.py       # pre-flight: links, titles, schema, h1s, images
 python3 tools/sitemap.py     # regenerate sitemap.xml from the file tree
 python3 tools/newpage.py <path> "<title>" "<description>"
 python3 tools/add-portrait.py <image>   # add the founder photo
+python3 tools/set-demo-number.py "+1 555 555 0123"   # set the Agent demo line
 ```
 
 **Always run `tools/check.py` before deploying.** It fails on broken internal
@@ -118,6 +120,41 @@ removing, or meaningfully editing a page, and commit the result.
 The build brief asked for a Node version (`tools/sitemap.mjs`). Node is not
 installed on the machine this was built on, so it is Python — same output, and
 it actually runs. Port it if you prefer.
+
+---
+
+## Placeholders that still need filling
+
+`tools/check.py` warns while either of these is unset. Neither blocks a build,
+but the first one ships a dead phone link if ignored.
+
+| What | Where | How to set it |
+|---|---|---|
+| **Shug Agent demo number** | `/agent/` hero + demo section | `python3 tools/set-demo-number.py "+1 555 555 0123"` |
+| **Booking / calendar URL** | "Book a Demo" buttons | Currently point at the Formspree lead form in `#apply`, which works. Swap the hrefs if you'd rather send people to a calendar. |
+
+The demo number appears twice on `/agent/` — a `tel:` href and the visible
+number on the button. The script rewrites both, and is safe to re-run.
+
+---
+
+## Products
+
+The site now carries two products under one brand:
+
+- **Shug Agent** (`/agent/`) — 24/7 front desk, $99/mo + $199 setup. Flagship;
+  gets the featured card treatment and first slot in the Products menu.
+- **Shug Websites** (`/services/websites/`) — the original offer, $297+/mo,
+  with local SEO, ads, and automations as add-on service pages.
+
+Both are reachable from the Products dropdown in the nav and from `/pricing/`,
+which lists Agent first and the three website tiers below it.
+
+The Products menu opens on hover, on focus, and on click. The CSS `:focus-within`
+rule is the no-JS path — **do not remove it**, or the flagship product becomes
+unreachable by keyboard when `site.js` fails to load. Escape sets an
+`is-dismissed` class because `:focus-within` alone would otherwise re-open the
+menu the instant focus returned to the button.
 
 ---
 

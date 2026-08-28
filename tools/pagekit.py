@@ -75,10 +75,16 @@ def nav(depth, current="", cta_href="#apply"):
 <nav class="nav" aria-label="Primary">
   <a class="brand" href="{p}" aria-label="Shug home"><span>shug</span></a>
   <div class="navlinks">
-    {link("services/websites/", "Services", "services")}
-    {link("pricing/", "Pricing", "pricing")}
-    {link("about/", "About", "about")}
-    <a class="navcta" href="{cta_href}">Get My Call</a>
+    <div class="navmenu">
+      <button class="navmenu-btn" type="button" aria-expanded="false" aria-controls="products-menu">Products</button>
+      <ul class="navmenu-list" id="products-menu">
+        <li class="is-flag"><a href="{p}agent/"><b>SHUG Agent</b><span>24/7 front desk that answers your calls</span></a></li>
+        <li><a href="{p}services/websites/"><b>SHUG Websites</b><span>Sites built to turn visitors into customers</span></a></li>
+      </ul>
+    </div>
+    <a class="navlink" href="{p}pricing/">Pricing</a>
+    <a class="navlink" href="{p}about/">About</a>
+    <a class="navcta" href="#apply">Book a Demo</a>
   </div>
 </nav>
 """
@@ -200,8 +206,9 @@ def footer(depth):
   </div>
   <nav class="foot-nav" aria-label="Footer">
     <div>
-      <h2>Services</h2>
+      <h2>Products</h2>
       <ul>
+        <li><a href="{p}agent/">Shug Agent</a></li>
         <li><a href="{p}services/websites/">Trade websites</a></li>
         <li><a href="{p}services/local-seo/">Local SEO</a></li>
         <li><a href="{p}services/google-ads/">Google Ads &amp; LSA</a></li>

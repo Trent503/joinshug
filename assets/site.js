@@ -155,4 +155,44 @@
     }, { threshold: 0.4 });
     stats.forEach(function (el) { io.observe(el); });
   }
+  /* ---- products menu -------------------------------------------------
+     CSS already opens this on hover and focus-within, so it works with JS
+     off. This adds click-toggle for touch, Escape to close, and keeps
+     aria-expanded truthful for screen readers. */
+  var menuBtn = document.querySelector('.navmenu-btn');
+  if (menuBtn) {
+    var menu = menuBtn.parentNode;
+    var setOpen = function (open) {
+      menuBtn.setAttribute('aria-expanded', open ? 'true' : 'false');
+    };
+    menuBtn.addEventListener('click', function (e) {
+      e.stopPropagation();
+      menu.classList.remove('is-dismissed');
+      setOpen(menuBtn.getAttribute('aria-expanded') !== 'true');
+    });
+    // Any pointer re-entry clears an Escape dismissal.
+    menu.addEventListener('mouseenter', function () {
+      menu.classList.remove('is-dismissed');
+    });
+    document.addEventListener('click', function (e) {
+      if (!menu.contains(e.target)) setOpen(false);
+    });
+    document.addEventListener('keydown', function (e) {
+      if (e.key !== 'Escape') return;
+      if (!menu.contains(document.activeElement) &&
+          menuBtn.getAttribute('aria-expanded') !== 'true') return;
+      menu.classList.add('is-dismissed');
+      setOpen(false);
+      menuBtn.focus();
+    });
+    menu.addEventListener('focusout', function () {
+      setTimeout(function () {
+        if (!menu.contains(document.activeElement)) {
+          setOpen(false);
+          menu.classList.remove('is-dismissed');
+        }
+      }, 0);
+    });
+  }
+
 })();

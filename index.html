@@ -3,14 +3,14 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Websites for Trades, Live in 24 Hours | Shug</title>
-<meta name="description" content="Shug builds your trade business a website in 24 hours, gets you found on Google, and texts back every missed call. From $297/mo. No contracts, ever.">
+<title>Tools & Services for Home-Service Businesses | Shug</title>
+<meta name="description" content="Shug builds tools and services for home-service businesses. Shug Agent answers your calls 24/7. Shug Websites turns visitors into booked jobs.">
 <link rel="canonical" href="https://joinshug.com/">
 <meta name="theme-color" content="#C0552A">
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="Shug">
-<meta property="og:title" content="Websites for Trades, Live in 24 Hours | Shug">
-<meta property="og:description" content="Shug builds your trade business a website in 24 hours, gets you found on Google, and texts back every missed call. From $297/mo. No contracts, ever.">
+<meta property="og:title" content="Tools & Services for Home-Service Businesses | Shug">
+<meta property="og:description" content="Shug builds tools and services for home-service businesses. Shug Agent answers your calls 24/7. Shug Websites turns visitors into booked jobs.">
 <meta property="og:url" content="https://joinshug.com/">
 <meta property="og:image" content="https://joinshug.com/assets/img/og-default.jpg">
 <meta name="twitter:card" content="summary_large_image">
@@ -38,10 +38,16 @@
 <nav class="nav" aria-label="Primary">
   <a class="brand" href="./" aria-label="Shug home"><span>shug</span></a>
   <div class="navlinks">
-    <a class="navlink" href="services/websites/">Services</a>
+    <div class="navmenu">
+      <button class="navmenu-btn" type="button" aria-expanded="false" aria-controls="products-menu">Products</button>
+      <ul class="navmenu-list" id="products-menu">
+        <li class="is-flag"><a href="agent/"><b>SHUG Agent</b><span>24/7 front desk that answers your calls</span></a></li>
+        <li><a href="services/websites/"><b>SHUG Websites</b><span>Sites built to turn visitors into customers</span></a></li>
+      </ul>
+    </div>
     <a class="navlink" href="pricing/">Pricing</a>
     <a class="navlink" href="about/">About</a>
-    <a class="navcta" href="#apply">Get My Call</a>
+    <a class="navcta" href="#apply">Book a Demo</a>
   </div>
 </nav>
 
@@ -55,44 +61,17 @@
     <div class="hero-grid wrap-wide" style="position:relative;display:grid;grid-template-columns:minmax(0,1.1fr) minmax(0,0.9fr);gap:clamp(32px,5vw,64px);align-items:center;">
       <div style="min-width:0;">
         <p class="eyebrow" style="display:inline-flex;align-items:center;gap:10px;animation:shugUp .6s cubic-bezier(.2,.7,.2,1) .05s both;">
-          <span aria-hidden="true" style="width:8px;height:8px;border-radius:50%;background:var(--orange);"></span>The online growth partner for blue-collar trades
+          <span aria-hidden="true" style="width:8px;height:8px;border-radius:50%;background:var(--orange);"></span>Tools and services for home-service businesses
         </p>
-        <h1 class="h-xl" style="margin:18px 0 0;max-width:17ch;animation:shugUp .7s cubic-bezier(.2,.7,.2,1) .15s both;">Your website, live in 24 hours. <span style="color:var(--orange-dark);">Your business, <span style="position:relative;display:inline-block;">found first.<svg aria-hidden="true" viewBox="0 0 220 14" preserveAspectRatio="none" style="position:absolute;left:0;bottom:-0.14em;width:100%;height:0.24em;overflow:visible;"><path d="M4 9 C 45 3, 95 12, 138 6 S 200 5, 216 9" pathLength="100" fill="none" stroke="#C0552A" stroke-width="7" stroke-linecap="round" style="stroke-dasharray:100;stroke-dashoffset:100;animation:shugDashDraw .9s ease-out 1.05s forwards;opacity:0.8;"></path></svg></span></span></h1>
-        <p style="font-size:clamp(17px,2.2vw,20px);line-height:1.55;font-weight:450;color:var(--muted);margin:24px 0 0;max-width:48ch;animation:shugUp .7s cubic-bezier(.2,.7,.2,1) .28s both;">Shug is the online growth agency for blue-collar trades — roofing, plumbing, HVAC, cleaning, landscaping. We build your website, get you found on Google, and manage your ads. Plus proven automations: missed calls texted back, reviews requested automatically, old customers re-engaged — jobs on the schedule. Everything you need, nothing you don't. From $297/mo.</p>
+        <h1 class="h-xl" style="margin:18px 0 0;max-width:16ch;animation:shugUp .7s cubic-bezier(.2,.7,.2,1) .15s both;">Shug builds for <span style="color:var(--orange-dark);">home-service businesses.</span></h1>
+        <p class="lede" style="margin:24px 0 0;max-width:48ch;animation:shugUp .7s cubic-bezier(.2,.7,.2,1) .28s both;">Two things right now: a front desk that answers your phone, and a website that turns visitors into booked jobs. Built by an operator who ran a trade business, not by a marketing agency.</p>
 
-        <!-- HERO LEAD FORM -->
-        <div style="margin:32px 0 0;max-width:540px;animation:shugUp .7s cubic-bezier(.2,.7,.2,1) .4s both;">
-          <form class="lead-form" data-lead-form data-done="hero-done" data-source="Homepage hero">
-            <p class="form-err" data-err hidden></p>
-            <div class="form-row">
-              <label class="vh" for="hero-name">Your name</label>
-              <input id="hero-name" name="name" type="text" required autocomplete="name" placeholder="Your name">
-              <label class="vh" for="hero-phone">Phone number</label>
-              <input id="hero-phone" name="phone" type="tel" required autocomplete="tel" placeholder="Phone">
-            </div>
-            <div class="form-row">
-              <label class="vh" for="hero-trade">Your trade</label>
-              <input id="hero-trade" name="trade" type="text" autocomplete="organization-title" placeholder="Your trade (roofing, plumbing, HVAC…)" style="flex:1 1 200px;">
-              <label class="hp" for="hero-company">Company (leave blank)</label>
-              <input class="hp" id="hero-company" name="company" type="text" tabindex="-1" autocomplete="off" aria-hidden="true">
-              <button class="shine" type="submit">Get My Free Blueprint Call →</button>
-            </div>
-          </form>
-          <div class="form-done" id="hero-done" hidden>
-            <b>You're on my call list.</b>
-            <span>I'll call you personally within 24 hours. Keep your phone close. — Trent</span>
-          </div>
-          <div data-form-aside>
-            <div style="display:flex;align-items:center;gap:12px;margin:16px 2px 0;flex-wrap:wrap;">
-              <span aria-hidden="true" style="display:flex;">
-                <span style="width:28px;height:28px;border-radius:50%;background:#C0552A;border:2px solid #F4F0EA;"></span>
-                <span style="width:28px;height:28px;border-radius:50%;background:#E0A07F;border:2px solid #F4F0EA;margin-left:-9px;"></span>
-                <span style="width:28px;height:28px;border-radius:50%;background:#9C4420;border:2px solid #F4F0EA;margin-left:-9px;"></span>
-              </span>
-              <span style="font-size:13.5px;font-weight:500;color:var(--muted);"><strong style="color:var(--ink);font-weight:800;">Join 50+ operators</strong> getting found first</span>
-            </div>
-            <p style="font-size:12.5px;font-weight:600;color:var(--dim);margin:10px 2px 0;">I'll personally call you within 24 hours. — Trent · No contracts · Money-back guarantee</p>
-          </div>
+        <!-- PRODUCT CTAS — the full lead form still lives in #apply below. -->
+        <p style="display:flex;flex-wrap:wrap;gap:12px;margin:32px 0 0;animation:shugUp .7s cubic-bezier(.2,.7,.2,1) .4s both;">
+          <a class="btn btn-orange shine" href="agent/">Explore Shug Agent →</a>
+          <a class="btn btn-ghost" href="services/websites/">Explore Shug Websites</a>
+        </p>
+        <p class="note" style="margin:14px 2px 0;">Shug Agent from $99/mo · Websites from $297/mo · No contracts</p>
         </div>
 
         <p style="display:inline-flex;align-items:center;gap:10px;margin:32px 0 0;animation:shugUp .7s ease .52s both;">
@@ -104,7 +83,7 @@
       <!-- HERO PHOTO -->
       <div style="position:relative;min-width:0;justify-self:center;width:100%;max-width:460px;animation:shugUp .8s cubic-bezier(.2,.7,.2,1) .42s both;">
         <div style="position:relative;">
-          <p aria-hidden="true" style="position:absolute;top:-14px;right:-6px;z-index:3;transform:rotate(4deg);background:var(--orange);color:var(--bone);font-family:var(--display);font-weight:800;font-size:13px;padding:9px 14px;border-radius:10px;box-shadow:0 12px 26px rgba(33,30,27,0.25);">SITE LIVE IN 24 HRS</p>
+          <p aria-hidden="true" style="position:absolute;top:-14px;right:-6px;z-index:3;transform:rotate(4deg);background:var(--orange);color:var(--bone);font-family:var(--display);font-weight:800;font-size:13px;padding:9px 14px;border-radius:10px;box-shadow:0 12px 26px rgba(33,30,27,0.25);">ANSWERS 24/7</p>
           <div style="border-radius:18px;overflow:hidden;background:linear-gradient(135deg,#E0A07F 0%,#C0552A 55%,#9C4420 100%);box-shadow:0 30px 60px rgba(33,30,27,0.22);">
             <img src="assets/img/hero-crew-900.jpg"
                  srcset="assets/img/hero-crew-900.jpg 900w, assets/img/hero-crew-1600.jpg 1600w"
@@ -116,8 +95,8 @@
           <div style="position:absolute;left:-14px;bottom:20px;z-index:3;display:flex;align-items:center;gap:11px;background:var(--white);border:1px solid var(--line);border-radius:12px;padding:12px 16px;box-shadow:0 18px 40px rgba(33,30,27,0.25);">
             <span aria-hidden="true" style="width:9px;height:9px;border-radius:50%;background:#3E8E5A;box-shadow:0 0 0 4px rgba(62,142,90,0.18);flex-shrink:0;"></span>
             <span style="display:flex;flex-direction:column;gap:1px;">
-              <span style="font-family:var(--display);font-weight:800;font-size:14.5px;color:var(--ink);line-height:1.2;">3 call slots left this week</span>
-              <a href="#apply" style="font-size:13px;font-weight:800;color:var(--orange-dark);">Book your free call →</a>
+              <span style="font-family:var(--display);font-weight:800;font-size:14.5px;color:var(--ink);line-height:1.2;">Shug Agent is live</span>
+              <a href="agent/" style="font-size:13px;font-weight:800;color:var(--orange-dark);">Never miss a call →</a>
             </span>
           </div>
         </div>
@@ -125,6 +104,44 @@
       </div>
     </div>
   </header>
+
+
+  <!-- ============ PRODUCTS ============ -->
+  <section id="products" class="sec bg-bone">
+    <div class="wrap">
+      <p class="eyebrow">What Shug makes</p>
+      <h2 class="h-lg" style="margin:14px 0 0;max-width:20ch;">Two ways Shug keeps your schedule full.</h2>
+
+      <div class="split-media" style="margin:44px 0 0;align-items:stretch;">
+        <!-- Flagship: given the wider column and the featured card treatment. -->
+        <div class="tier tier-featured" style="text-align:left;">
+          <p class="tag">SHUG AGENT · FLAGSHIP</p>
+          <h3 style="max-width:14ch;">Never miss another customer call.</h3>
+          <p class="tier-sub" style="white-space:normal;">A 24/7 front desk built specifically for home-service businesses. It answers your calls, handles customers, books appointments, filters spam, and gets you when you're actually needed.</p>
+          <div class="ticks">
+            <p class="tick">Answers 24/7, including after hours</p>
+            <p class="tick">Books appointments and creates tasks</p>
+            <p class="tick">Filters spam, transfers the urgent calls</p>
+          </div>
+          <p class="tier-price" style="margin-top:20px;"><b>$99</b><span>/mo + $199 setup</span></p>
+          <a class="tier-btn" href="agent/" style="display:block;text-align:center;">Explore Shug Agent →</a>
+        </div>
+
+        <div class="tier" style="text-align:left;">
+          <p class="tag">SHUG WEBSITES</p>
+          <h3 style="max-width:16ch;">Websites built to turn visitors into customers.</h3>
+          <p class="tier-sub" style="white-space:normal;">A site engineered to book jobs rather than just look nice — live in 24 hours, hosting and maintenance included.</p>
+          <div class="ticks">
+            <p class="tick">Live in 24 hours</p>
+            <p class="tick">Booking and quote capture built in</p>
+            <p class="tick">Local SEO, ads, and automations available</p>
+          </div>
+          <p class="tier-price" style="margin-top:20px;"><b>$297</b><span>/mo</span></p>
+          <a class="tier-btn" href="services/websites/" style="display:block;text-align:center;">Explore Shug Websites →</a>
+        </div>
+      </div>
+    </div>
+  </section>
 
   <!-- OPERATOR STRIP -->
   <section class="bg-sand" style="border-bottom:1px solid var(--line-strong);padding:16px var(--gut);" aria-label="Founder credibility">
@@ -444,8 +461,9 @@
   </div>
   <nav class="foot-nav" aria-label="Footer">
     <div>
-      <h2>Services</h2>
+      <h2>Products</h2>
       <ul>
+        <li><a href="agent/">Shug Agent</a></li>
         <li><a href="services/websites/">Trade websites</a></li>
         <li><a href="services/local-seo/">Local SEO</a></li>
         <li><a href="services/google-ads/">Google Ads &amp; LSA</a></li>
@@ -495,15 +513,15 @@
 </footer>
 
 <div class="sticky is-off" id="sticky-cta">
-  <span><strong>Only 3 call slots left this week.</strong> Free 15-min blueprint call — no card, no pressure.</span>
-  <a class="shine" href="#apply">Book My Free Call →</a>
+  <span><strong>Your phone rings while you work.</strong> Shug Agent answers it, 24/7.</span>
+  <a class="shine" href="agent/">Explore Shug Agent →</a>
 </div>
 
 <div class="nudge" id="nudge" hidden>
-  <button id="nudge-x" type="button" aria-label="Dismiss offer">×</button>
-  <p style="font-family:var(--display);font-weight:800;font-size:17px;color:var(--ink);padding-right:20px;">Still deciding?</p>
-  <p style="font-size:14px;font-weight:500;color:var(--muted);line-height:1.5;margin-top:5px;">Book your free call this week and take <strong style="color:var(--orange-dark);font-weight:800;">$100 off your first month</strong>.</p>
-  <a id="nudge-claim" href="#apply">Claim it →</a>
+  <button id="nudge-x" type="button" aria-label="Dismiss">×</button>
+  <b>Still deciding?</b>
+  <span>Hear how Shug Agent handles a real customer call before you commit to anything.</span>
+  <a href="agent/#demo">Hear it answer →</a>
 </div>
 
 <script src="assets/site.js" defer></script>

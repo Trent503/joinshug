@@ -104,6 +104,38 @@ p{margin:0}
   animation:shugPulse 2.8s ease-in-out infinite}
 .navcta:hover{background:var(--orange-dark)}
 
+/* --- PRODUCTS MENU ------------------------------------------------------
+   Opens on hover, on focus-within, and on click. The :focus-within rule is
+   the no-JS path: tabbing to the button reveals the menu even if site.js
+   never runs, so the flagship product is always reachable. JS only adds
+   click-toggle, Escape, and the aria-expanded state. */
+.navmenu{position:relative}
+.navmenu-btn{display:inline-flex;align-items:center;gap:6px;background:none;border:0;padding:0;
+  cursor:pointer;font-family:inherit;font-size:13px;font-weight:700;letter-spacing:0.06em;
+  text-transform:uppercase;color:var(--muted)}
+.navmenu-btn:hover,.navmenu-btn[aria-expanded="true"]{color:var(--ink)}
+.navmenu-btn::after{content:"";width:0;height:0;border:4px solid transparent;
+  border-top-color:currentColor;margin-top:3px;transition:transform .2s ease}
+.navmenu-btn[aria-expanded="true"]::after{transform:rotate(180deg);margin-top:-3px}
+.navmenu-list{position:absolute;top:calc(100% + 12px);left:50%;transform:translateX(-50%);
+  min-width:250px;max-width:calc(100vw - 24px);list-style:none;margin:0;padding:8px;background:var(--white);
+  border:1px solid var(--line);border-radius:14px;box-shadow:0 20px 44px rgba(33,30,27,0.18);
+  opacity:0;visibility:hidden;transition:opacity .16s ease,visibility .16s ease}
+.navmenu:hover .navmenu-list,.navmenu:focus-within .navmenu-list,
+.navmenu-btn[aria-expanded="true"]+.navmenu-list{opacity:1;visibility:visible}
+/* Escape returns focus to the button, which :focus-within would otherwise read
+   as "still open". This wins over both, so dismissing actually dismisses. */
+.navmenu.is-dismissed .navmenu-list{opacity:0;visibility:hidden}
+.navmenu-list a{display:block;padding:11px 13px;border-radius:9px}
+.navmenu-list a:hover,.navmenu-list a:focus-visible{background:var(--bone)}
+.navmenu-list b{display:block;font-family:var(--display);font-weight:800;font-size:15.5px;
+  color:var(--ink);letter-spacing:-0.01em}
+.navmenu-list span{display:block;font-size:13px;font-weight:500;color:var(--muted);margin-top:2px}
+.navmenu-list .is-flag b::after{content:"Flagship";float:right;font-family:var(--sans);font-size:10px;
+  font-weight:800;letter-spacing:0.1em;color:var(--orange-dark);background:var(--sand);
+  border-radius:5px;padding:2px 6px;margin-left:8px}
+@media (prefers-reduced-motion:reduce){.navmenu-list{transition:none}}
+
 /* --- BUTTONS ------------------------------------------------------------ */
 .btn{display:inline-block;font-size:15px;font-weight:800;padding:15px 30px;border-radius:9px;
   cursor:pointer;border:2px solid transparent;font-family:var(--sans);transition:background .22s ease,transform .22s ease}
