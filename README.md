@@ -33,7 +33,7 @@ _headers  _redirects                Cloudflare Pages: security headers, caching,
 assets/site.css                     Every style on the site
 assets/site.js                      Forms, sticky bar, nudge, stat counters
 assets/img/                         Photos, logo, favicons, OG image
-agent/                              Shug Agent — 24/7 front desk (flagship product)
+agent/                              Agents — 24/7 front desk (flagship product)
 services/       + 4 subpages        Websites, local SEO, Google Ads, automations
 industries/     + 5 subpages        Roofing, plumbing, HVAC, exterior cleaning, landscaping
 pricing/ about/ guarantee/ contact/
@@ -130,7 +130,7 @@ but the first one ships a dead phone link if ignored.
 
 | What | Where | How to set it |
 |---|---|---|
-| **Shug Agent demo number** | `/agent/` hero + demo section | `python3 tools/set-demo-number.py "+1 555 555 0123"` |
+| **Agents demo number** | `/agent/` hero + demo section | `python3 tools/set-demo-number.py "+1 555 555 0123"` |
 | **Booking / calendar URL** | "Book a Demo" buttons | Currently point at the Formspree lead form in `#apply`, which works. Swap the hrefs if you'd rather send people to a calendar. |
 
 The demo number appears twice on `/agent/` — a `tel:` href and the visible
@@ -142,9 +142,9 @@ number on the button. The script rewrites both, and is safe to re-run.
 
 The site now carries two products under one brand:
 
-- **Shug Agent** (`/agent/`) — 24/7 front desk, $99/mo + $199 setup. Flagship;
+- **Agents** (`/agent/`) — 24/7 front desk, $99/mo + $199 setup. Flagship;
   gets the featured card treatment and first slot in the Products menu.
-- **Shug Websites** (`/services/websites/`) — the original offer, $297+/mo,
+- **Websites** (`/services/websites/`) — the original offer, $297+/mo,
   with local SEO, ads, and automations as add-on service pages.
 
 Both are reachable from the Products dropdown in the nav and from `/pricing/`,

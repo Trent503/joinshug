@@ -78,8 +78,8 @@ def nav(depth, current="", cta_href="#apply"):
     <div class="navmenu">
       <button class="navmenu-btn" type="button" aria-expanded="false" aria-controls="products-menu">Products</button>
       <ul class="navmenu-list" id="products-menu">
-        <li class="is-flag"><a href="{p}agent/"><b>SHUG Agent</b><span>24/7 front desk that answers your calls</span></a></li>
-        <li><a href="{p}services/websites/"><b>SHUG Websites</b><span>Sites built to turn visitors into customers</span></a></li>
+        <li class="is-flag"><a href="{p}agent/"><b>Agents</b><span>24/7 front desk that answers your calls</span></a></li>
+        <li><a href="{p}services/websites/"><b>Websites</b><span>Sites built to turn visitors into customers</span></a></li>
       </ul>
     </div>
     <a class="navlink" href="{p}pricing/">Pricing</a>
@@ -208,7 +208,7 @@ def footer(depth):
     <div>
       <h2>Products</h2>
       <ul>
-        <li><a href="{p}agent/">Shug Agent</a></li>
+        <li><a href="{p}agent/">Agents</a></li>
         <li><a href="{p}services/websites/">Trade websites</a></li>
         <li><a href="{p}services/local-seo/">Local SEO</a></li>
         <li><a href="{p}services/google-ads/">Google Ads &amp; LSA</a></li>

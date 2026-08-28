@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Set the Shug Agent demo phone number everywhere it appears.
+Set the Agents demo phone number everywhere it appears.
 
     python3 tools/set-demo-number.py "+1 555 555 0123"
 
