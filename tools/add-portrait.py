@@ -56,10 +56,10 @@ def sips(src, dst, size, quality):
 ANCHORS = [
     # page, depth, regex, insert, max-width, loading
     ("index.html", 0,
-     r'<div style="display:flex;align-items:center;gap:14px;margin:30px 0 0;">',
-     "before", 380, "lazy"),
+     r'<div class="split-media-img">\s*',
+     "after", 380, "lazy"),
     ("about/index.html", 1,
-     r'<p class="lede mt-3">.*?</p>',
+     r'<div class="split">\s*<div>.*?</div>\s*<div>',
      "after", 420, "eager"),
 ]
 
@@ -68,7 +68,22 @@ def patch(page, depth, pattern, where, maxw, load, w1, h1, w2):
     path = os.path.join(ROOT, page)
     s = open(path).read()
     if "trent-600.jpg" in s:
-        print(f"  {page}: already has the portrait, left alone")
+        # The portrait is already placed, possibly inside hand-authored layout
+        # markup. Do not re-insert it -- update the attributes that depend on
+        # the source photo, so swapping in one with a different aspect ratio
+        # cannot leave stale dimensions or srcset descriptors behind.
+        before = s
+        s = re.sub(r'(srcset="[^"]*trent-600\.jpg )\d+(w, [^"]*trent-1200\.jpg )\d+w"',
+                   rf'\g<1>{w1}\g<2>{w2}w"', s)
+        s = re.sub(r'(<img[^>]*trent-600\.jpg.*?)width="\d+" height="\d+"',
+                   rf'\g<1>width="{w1}" height="{h1}"', s, flags=re.S)
+        s = re.sub(r'(<img[^>]*trent-600\.jpg.*?alt=")[^"]*"',
+                   lambda m: m.group(1) + ALT + '"', s, flags=re.S)
+        if s != before:
+            open(path, "w").write(s)
+            print(f"  {page}: portrait updated in place ({w1}x{h1})")
+        else:
+            print(f"  {page}: portrait already current")
         return True
 
     m = re.search(pattern, s, re.S)
