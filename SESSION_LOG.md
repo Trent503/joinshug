@@ -318,3 +318,85 @@ rejected with 400 rather than silently blanking the owner's notification target.
 
 **NEXT:** Phases 10–13 — dashboard shell, leads UI, calls + settings UI, demo
 seed data.
+
+---
+
+## Phases 10–13 — Dashboard and demo data
+
+`/app/` — vanilla HTML/CSS/JS, no framework, no build step, same rules as the
+marketing site. Brand tokens copied from `assets/site.css` into a **separate**
+`app/app.css` so the content-hashed, immutable marketing stylesheet is never
+touched by a dashboard edit.
+
+| Route | File | Notes |
+|---|---|---|
+| `/app/login/` | `login.js` | open-redirect guard on `?next=` |
+| `/app/` | `overview.js` | one `/api/overview` request, not six |
+| `/app/leads/` | `leads.js` | list + detail in one page, `?id=` selects |
+| `/app/calls/` | `calls.js` | no transcripts in the list query |
+| `/app/settings/` | `settings.js` | 4 editable fields + password change |
+
+**CSP is load-bearing.** `_headers` sets `script-src 'self'` with no
+`'unsafe-inline'`. An inline `<script>` or an `onclick=` works perfectly in
+`wrangler dev` (which does not enforce the header) and then silently does
+nothing in production. `tests/ui.mjs` asserts this rather than trusting anyone
+to remember it.
+
+`_headers` gains `/app/*` → `no-store` + `noindex`; `robots.txt` disallows
+`/app/`.
+
+**Demo seed** — `node tools/seed-demo.mjs [--reset] [--remote]`. Business
+`shug-demo` (`is_demo = 1`), 12 leads across all six statuses, 17 calls with
+summaries and transcripts, 3 bookings, 5 follow-ups, notification rows, and two
+junk calls (a wrong number and a robocall) so the log looks like real traffic
+rather than a highlight reel. One lead has **three calls** — the repeat customer
+that makes dedupe visible on screen.
+
+The **87 / 120 minutes is not a constant.** It is `SUM(duration_sec)` over the
+seeded calls; the script computes a padding row to hit exactly 87 and then reads
+the number back out of D1 and fails if it disagrees. A seeded counter would
+drift from the seeded calls and the demo would contradict itself on screen.
+
+`node tools/add-user.mjs <business-id> <email> [password]` attaches a login to
+an existing business, importing `hashPassword()` from `functions/lib/auth.js` so
+it produces the same PBKDF2 parameters the API does.
+
+### Verified in a real browser (Chrome, 1456×826)
+
+Signed in as the demo owner and walked all four pages. Login, overview, leads
+list, lead detail, calls, settings all render correctly, and the marketing site
+still renders identically through the worker.
+
+**Bug found by looking at it, which no test would have caught:** the seed's
+follow-up dates were sign-inverted, so "Spring: she mentioned a repipe" was
+dated **1 May** and three forward-looking reminders showed as overdue —
+"follow-ups due" read 3 when it should read 2. The field is now `inDays`, signed
+the way a human reads it (negative = overdue).
+
+Also fixed: disabled inputs were styled identically to editable ones, so the
+read-only Shug number on Settings invited a click it would then refuse.
+
+---
+
+## Phase 14 — Jobber documentation
+
+`functions/api/jobber/` read and left **byte-for-byte untouched**
+(`git diff HEAD -- functions/api/jobber/` is empty).
+
+Written up in `NEEDS_CONFIG.md`: what both endpoints do, the OAuth state-cookie
+and refresh-rotation design, the KV key layout, every variable and secret
+required, and the six steps to enable it. The routes are deliberately **absent
+from `worker/index.js`** — that is what keeps a half-built OAuth flow off the
+public internet.
+
+Confirmed nothing built this session would need rewriting to turn it on:
+`booking_destination` / `bookings.destination` are already the seam,
+`leads.delivery_status` / `delivery_error` / `booking_ref` already track
+per-lead delivery, and `markLeadDelivery()` is already the function an adapter
+would call.
+
+## TEST TOTALS: 248 assertions, 0 failing
+
+`node tests/run.mjs` → 173 · `node tests/ui.mjs` → 75
+
+**NEXT:** Phase 15 — remote schema, production secrets, deploy, verify live.

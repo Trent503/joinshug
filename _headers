@@ -25,3 +25,24 @@
 # Images are content-stable — safe to cache hard.
 /assets/img/*
   Cache-Control: public, max-age=31536000, immutable
+
+# The customer dashboard. Private, per-session data.
+#
+# ONE rule covering everything under /app/, deliberately, because the note at
+# the top of this file says overlapping Cache-Control globs are not worth
+# relying on — so app.css and app.js get the same no-store as the HTML rather
+# than a second, more specific rule.
+#
+# no-store, not no-cache: a dashboard page sitting in the back/forward cache on
+# a shared laptop is a signed-out customer's data still on the screen. The cost
+# is re-fetching ~20KB of CSS and JS on navigation between four pages, which is
+# not a trade worth thinking about twice.
+#
+# These files are also NOT content-hashed the way assets/site.css is
+# (see tools/stamp-assets.py), so no-store additionally guarantees a fix
+# reaches customers on their next page load rather than whenever a cache
+# happens to expire.
+/app/*
+  Cache-Control: no-store, must-revalidate
+  X-Robots-Tag: noindex, nofollow
+  Referrer-Policy: no-referrer

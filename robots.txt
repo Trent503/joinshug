@@ -9,9 +9,14 @@ Allow: /
 # Maintenance scripts, not site content. Also redirected away in _redirects.
 Disallow: /tools/
 
-# Pages Functions. The Jobber OAuth endpoints are a backend, not content — they
-# set cookies, take query parameters and must never appear in an index.
+# The API. A backend, not content — it sets cookies, takes query parameters,
+# and must never appear in an index.
 Disallow: /api/
+
+# The customer dashboard. Everything behind it needs a session, so a crawler
+# would only ever reach the sign-in page — and a sign-in page ranking for
+# "shug" would put customers on a login screen instead of on the pitch.
+Disallow: /app/
 
 # Named explicitly so the decision is on the record and survives the next person
 # who edits this file. These are the crawlers behind AI Overviews, ChatGPT Search,

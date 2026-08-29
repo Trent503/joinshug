@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Sign in · Shug</title>
+<meta name="robots" content="noindex, nofollow">
+<meta name="theme-color" content="#C0552A">
+<link rel="icon" href="/assets/img/favicon-32.png" type="image/png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Anton&family=Bricolage+Grotesque:opsz,wght@12..96,700;12..96,800&family=Hanken+Grotesk:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/app/app.css">
+</head>
+<body>
+<main class="auth">
+  <div class="auth-card">
+    <div class="auth-brand"><span>shug</span></div>
+    <h1>Sign in</h1>
+    <p class="lede">Your calls, your leads, your bookings.</p>
+
+    <div class="auth-err" id="error" hidden></div>
+
+    <form id="form" novalidate>
+      <div class="field">
+        <label for="email">Email</label>
+        <input id="email" name="email" type="email" autocomplete="username"
+               required autocapitalize="none" spellcheck="false">
+      </div>
+      <div class="field">
+        <label for="password">Password</label>
+        <input id="password" name="password" type="password"
+               autocomplete="current-password" required>
+      </div>
+      <button class="btn" type="submit" id="submit" style="width:100%">Sign in</button>
+    </form>
+
+    <p class="auth-foot">
+      Not set up yet? <a href="/contact/">Talk to us</a> and we will get your
+      number answering today.
+    </p>
+  </div>
+</main>
+<script type="module" src="/app/login.js"></script>
+</body>
+</html>
