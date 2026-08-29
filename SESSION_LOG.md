@@ -180,3 +180,141 @@ deployed as a static asset.
 - **Blocked:** nothing.
 - **NEXT:** Phase 2 — Worker entry point + `[assets]` config, corrected and
   extended D1 schema, data layer, local dev running.
+
+---
+
+## Phase 2 — Platform fix, schema, data layer
+
+**Done.** `worker/index.js` route table + `wrangler.toml` `main` / `[assets]` /
+`run_worker_first = ["/api/*"]`. Handlers keep their Pages `onRequest*` shape,
+so a future move to Pages is a config change, not a rewrite.
+
+`schema.sql` rebuilt: `businesses`, `phone_numbers`, `users`, `sessions`,
+`leads`, `calls`, `bookings`, `follow_ups`, `notifications`, `usage_monthly`
+view. The v1 model had `leads.retell_call_id NOT NULL UNIQUE` — one lead per
+call — which would have made a repeat caller a new lead every time. Now
+`UNIQUE(business_id, phone)` with `calls.lead_id` pointing at the lead.
+Safe to change outright: **no D1 database existed**, so no data to migrate.
+
+Libraries: `store.js` (businesses / numbers / calls / leads),
+`crm.js` (bookings / follow-ups / overview aggregates),
+`notify.js` (notification queue + provider seam),
+`auth.js` (PBKDF2 + sessions), `guard.js` (the single authorisation gate).
+
+**Cloudflare resources created** (none existed — purely additive):
+
+| Binding | Kind | Id |
+|---|---|---|
+| `DB` | D1 `shug` | `03557859-24f8-45e0-bcc6-9368bae9f3d1` |
+| `CONFIG_CACHE` | KV | `6f016140a69d4130bce349db03bb2307` |
+| `JOBBER_TOKENS` | KV | `439992672db24d6eb504c9842f1810d5` |
+
+---
+
+## SECURITY FINDINGS (both fixed; one was live)
+
+### 1. `/.dev.vars` was served publicly — FIXED before any deploy
+
+The asset directory is the repo root, so `wrangler dev` served `/.dev.vars`
+with a **200 and the real Retell API key in the body**. `.dev.vars` is
+gitignored, which protects the *repository* and does nothing whatsoever about
+the *asset bundle* — the asset directory is the working tree, not the git index.
+
+Fixed in `.assetsignore`. Verified: 404, 0-byte body.
+
+### 2. joinshug.com is serving `/.git/` RIGHT NOW — fix ships with next deploy
+
+```
+https://joinshug.com/.git/config  200  (234 bytes, shows the GitHub remote)
+https://joinshug.com/.git/HEAD    200
+https://joinshug.com/.git/index   200  (5686 bytes)
+https://joinshug.com/.git/logs/HEAD 200
+```
+
+That is enough to reconstruct the repository from the live site.
+
+**Credential impact: none.** The full history was searched for
+`key_…` / `sk_live` / `AKIA…` patterns and for any committed `.dev.vars` or
+`.env`; nothing was ever committed. This is source exposure only, and the
+source is already on GitHub (`Trent503/joinshug`).
+
+`.assetsignore` now excludes `.git/`. Verified 404 locally. **It goes live with
+the Phase 15 deploy** — that deploy is what closes it.
+
+---
+
+## Phases 3–7 — Retell, leads, metering, notifications
+
+Signature verification kept as written (it was already correct). Webhook
+rewritten for the new model:
+
+* leads dedupe on `(business_id, phone)`; `normalizeE164` handles
+  `(503) 555-1111` ≡ `+15035551111` and maps anonymous caller ID to NULL so
+  withheld-number callers do not all collapse into one lead
+* `attachCallToLead` **recomputes** `call_count` / `first_call_id` /
+  `last_call_id` from the calls table rather than incrementing, so a webhook
+  retry cannot inflate them
+* a repeat call never resets a status the owner set — except a `completed` or
+  `lost` lead calling back, which reopens as `new` because that is a new job
+* bookings are created only from a **real calendar date**; "next Tuesday" stays
+  on `preferred_time` rather than becoming a wrong appointment
+* notifications are queued at `call_ended` (so the owner is told even if
+  analysis never lands) and the body is upgraded in place at `call_analyzed`;
+  `UNIQUE(call_id, channel)` makes both paths idempotent
+* metering is `SUM(duration_sec)` per `(business_id, billed_month)`, month
+  stamped in the business's own timezone, rounded up **once per month** so six
+  10-second hangups cost one minute rather than six
+
+**No SMS provider is configured and none was signed up for.** The queue is
+complete and tested; every send lands in `skipped` / `no_provider`. A full
+Twilio adapter is written and gated on credentials — see `NEEDS_CONFIG.md`.
+
+---
+
+## Phases 8–9 — Auth, tenancy, provisioning
+
+PBKDF2-HMAC-SHA256, 210,000 iterations, per-user 16-byte salt, iteration count
+stored per row so it can be raised without invalidating anyone. Sessions are
+server-side in D1 storing `sha256(token)`, never the token. Cookie is HttpOnly
++ SameSite=Lax + Secure (`__Host-` prefix on HTTPS, unprefixed on
+`http://localhost`). CSRF is defended twice and independently: SameSite=Lax and
+an `Origin` check on every state-changing request.
+
+`business_id` comes off the session row and from nowhere else. A body field
+named `business_id` is ignored — tested.
+
+**Provisioning:** `POST /api/admin/provision`, bearer `ADMIN_TOKEN`. Writes the
+business, its `phone_numbers` routing row, and the owner's login in **one D1
+batch**, so a half-provisioned customer is not a reachable state. Returns a
+generated password once, using an alphabet with no `0/O`, `1/l/I`, `5/S` or
+`2/Z` because it gets read aloud on a sales call.
+
+---
+
+## TESTS — 173 assertions, all passing
+
+`node tests/run.mjs` against `npx wrangler dev --port 8787`. Local D1/KV only;
+no production credential, no production resource. Provisions its own tenants and
+deletes them at the end, so it is repeatable.
+
+Covered: provisioning (incl. duplicate number → 409, duplicate email → 409) ·
+auth (wrong password, unknown email returning the *same* error, no session,
+expired session, post-logout cookie replay, CSRF) · password change (current
+password required, other sessions revoked) · lockout · webhook signatures
+(valid / missing / wrong key / malformed / **stale beyond the 5-min window** /
+**body tampered after signing**) · malformed bodies and wrong methods ·
+unknown numbers · **tenant isolation A↔B across leads, calls, bookings,
+follow-ups, settings, and a forged `business_id` in the body** · lead dedupe
+(same caller ×3, different format, different caller, owner status preserved,
+closed lead reopening, spam, voicemail, triple-replayed webhook) · metering
+(rounding, month boundary, past month, overage, per-timezone month) · bookings ·
+follow-ups (due vs not-yet-due) · notifications (queued, deduped, skipped with a
+reason) · suspension (read yes, write 402, phone rejects).
+
+**Bug found and fixed by the suite:** `notify_email` was normalised at
+provisioning but not on the settings update path, so the same address could be
+stored two ways. Now normalised in one place, and an unusable address is
+rejected with 400 rather than silently blanking the owner's notification target.
+
+**NEXT:** Phases 10–13 — dashboard shell, leads UI, calls + settings UI, demo
+seed data.

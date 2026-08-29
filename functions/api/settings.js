@@ -98,7 +98,13 @@ export async function onRequestPatch(context) {
     }
   }
 
-  const updated = await updateBusiness(context.env, gate.session.business_id, patch);
+  let updated;
+  try {
+    updated = await updateBusiness(context.env, gate.session.business_id, patch);
+  } catch (e) {
+    if (e && e.message === 'invalid_email') return fail('invalid_email', 400);
+    throw e;
+  }
   if (!updated) return fail('business_not_found', 404);
 
   return json({ ok: true, settings: present(updated) });

@@ -21,6 +21,11 @@
    This module exports no onRequest* handler, so it is not routable. */
 
 import { billedMonth, isoNow } from './http.js';
+/* auth.js imports only http.js, so this cannot create a cycle. The email
+   normaliser lives there because that is where an email is a credential; it is
+   reused here so a notification address entered through Settings is stored in
+   exactly the same shape as one entered at provisioning time. */
+import { normalizeEmail } from './auth.js';
 
 const CACHE_PREFIX = 'number:';
 const CACHE_TTL_SECONDS = 300;
@@ -187,11 +192,23 @@ export async function updateBusiness(env, businessId, patch) {
     let value = patch[field];
     if (typeof value === 'string') value = value.trim();
     if (value === '') value = null;
+
     /* Both of these are dialled or messaged by the system, so they are stored
        in the one format everything else expects. */
     if (field === 'transfer_number' || field === 'notify_sms') {
       value = normalizeE164(value);
     }
+
+    /* Same shape as provisioning writes: lower-cased and trimmed. An address
+       that does not normalise is REJECTED rather than stored as null —
+       silently blanking a notification target is how an owner stops being told
+       about calls without ever being told why. */
+    if (field === 'notify_email' && value !== null) {
+      const normalized = normalizeEmail(value);
+      if (!normalized) throw new Error('invalid_email');
+      value = normalized;
+    }
+
     sets.push(field + ' = ?');
     values.push(value);
   }
