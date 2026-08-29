@@ -1,8 +1,46 @@
-# joinshug.com
+# joinshug.com — Shug, the AI receptionist for home-service businesses.
+
+# Search and answer engines are both welcome. Shug's whole discovery strategy is
+# being the clearest explanation of what an AI receptionist does for a contractor,
+# so the AI crawlers below are allowed deliberately rather than by default.
 User-agent: *
 Allow: /
 
 # Maintenance scripts, not site content. Also redirected away in _redirects.
 Disallow: /tools/
+
+# Pages Functions. The Jobber OAuth endpoints are a backend, not content — they
+# set cookies, take query parameters and must never appear in an index.
+Disallow: /api/
+
+# Named explicitly so the decision is on the record and survives the next person
+# who edits this file. These are the crawlers behind AI Overviews, ChatGPT Search,
+# Perplexity, Claude and Copilot. Shug wants to be readable by all of them.
+User-agent: Google-Extended
+Allow: /
+
+User-agent: GPTBot
+Allow: /
+
+User-agent: OAI-SearchBot
+Allow: /
+
+User-agent: ChatGPT-User
+Allow: /
+
+User-agent: ClaudeBot
+Allow: /
+
+User-agent: Claude-Web
+Allow: /
+
+User-agent: PerplexityBot
+Allow: /
+
+User-agent: Applebot-Extended
+Allow: /
+
+User-agent: cohere-ai
+Allow: /
 
 Sitemap: https://joinshug.com/sitemap.xml

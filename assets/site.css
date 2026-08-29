@@ -354,3 +354,38 @@ p{margin:0}
   html{scroll-behavior:auto}
   *{animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important}
 }
+
+/* --- ANSWER BLOCKS + COMPARISON TABLES ---------------------------------
+   Added for the answer-first content pattern: a short, self-contained answer
+   at the top of a section, then the detail. Both the answer box and the table
+   are plain HTML so search engines and answer engines read them without JS. */
+
+.answer{background:var(--white);border:1px solid var(--line);border-left:5px solid var(--orange);
+  border-radius:12px;padding:20px 22px;margin:0 0 26px}
+.answer p{font-size:clamp(16px,2vw,18px);line-height:1.6;font-weight:600;color:var(--body)}
+.answer p + p{margin-top:10px;font-weight:400;color:var(--muted)}
+.bg-ink .answer,.bg-orange .answer{background:rgba(255,255,255,.06);border-color:var(--line-dark)}
+
+/* The wrapper scrolls, never the page body. */
+.tscroll{overflow-x:auto;-webkit-overflow-scrolling:touch;margin:0 0 8px;
+  border:1px solid var(--line);border-radius:12px;background:var(--white)}
+.ctable{border-collapse:collapse;width:100%;min-width:640px;font-size:15px}
+.ctable caption{text-align:left;padding:14px 16px 0;font-size:13px;font-weight:700;
+  letter-spacing:.06em;text-transform:uppercase;color:var(--dim)}
+.ctable th,.ctable td{padding:13px 16px;text-align:left;vertical-align:top;
+  border-bottom:1px solid var(--line)}
+.ctable thead th{font-family:var(--sans);font-size:13px;font-weight:800;letter-spacing:.04em;
+  text-transform:uppercase;color:var(--ink);background:var(--sand);white-space:nowrap}
+.ctable tbody th{font-weight:700;color:var(--ink);white-space:nowrap}
+.ctable tbody tr:last-child th,.ctable tbody tr:last-child td{border-bottom:0}
+.ctable td{color:var(--muted);line-height:1.5}
+.ctable .is-shug{background:#FBF7F2}
+.ctable thead .is-shug{background:var(--orange);color:var(--white)}
+.tnote{font-size:13px;color:var(--dim);margin:0 0 4px}
+
+/* Question-led H2s for the answer-first sections. */
+.qa{margin:0 0 34px}
+.qa h2{font-size:clamp(21px,3vw,28px);line-height:1.15;margin:0 0 12px}
+.qa p{margin:0 0 12px;line-height:1.65;color:var(--body)}
+.qa ul{margin:0 0 12px;padding-left:20px;color:var(--body);line-height:1.65}
+.qa li{margin:0 0 6px}

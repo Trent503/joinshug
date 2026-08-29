@@ -66,25 +66,31 @@ def head(depth, title, desc, path, og_image="assets/img/og-default.jpg",
 
 
 def nav(depth, current="", cta_href="#apply"):
-    """cta_href: pages with no #apply section (legal pages) must pass a real URL."""
+    """cta_href is kept for signature compatibility; the nav CTA is the demo line.
+
+    The strongest thing Shug can offer a visitor is a live call with the AI
+    receptionist, so the nav CTA dials it rather than scrolling to a form."""
     p = P(depth)
+    root = p or "./"
     def link(href, label, key):
         cur = ' aria-current="page"' if key == current else ""
         return f'<a class="navlink" href="{p}{href}"{cur}>{label}</a>'
     return f"""
 <nav class="nav" aria-label="Primary">
-  <a class="brand" href="{p}" aria-label="Shug home"><span>shug</span></a>
+  <a class="brand" href="{root}" aria-label="Shug home"><span>shug</span></a>
   <div class="navlinks">
     <div class="navmenu">
-      <button class="navmenu-btn" type="button" aria-expanded="false" aria-controls="products-menu">Products</button>
+      <button class="navmenu-btn" type="button" aria-expanded="false" aria-controls="products-menu">Product</button>
       <ul class="navmenu-list" id="products-menu">
-        <li class="is-flag"><a href="{p}agent/"><b>Agents</b><span>24/7 front desk that answers your calls</span></a></li>
+        <li class="is-flag"><a href="{p}agent/"><b>AI Receptionist</b><span>Answers every call 24/7 and books the job</span></a></li>
+        <li><a href="{p}industries/"><b>By trade</b><span>Roofing, HVAC, plumbing, electrical and more</span></a></li>
+        <li><a href="{p}compare/"><b>Compare</b><span>vs answering services, receptionists, voicemail</span></a></li>
         <li><a href="{p}services/websites/"><b>Websites</b><span>Sites built to turn visitors into customers</span></a></li>
       </ul>
     </div>
-    <a class="navlink" href="{p}pricing/">Pricing</a>
-    <a class="navlink" href="{p}about/">About</a>
-    <a class="navcta" href="#apply">Book a Demo</a>
+    {link("pricing/", "Pricing", "pricing")}
+    {link("about/", "About", "about")}
+    <a class="navcta" href="tel:+15033768729">Hear Shug</a>
   </div>
 </nav>
 """
@@ -93,7 +99,8 @@ def nav(depth, current="", cta_href="#apply"):
 def crumbs(depth, trail):
     """trail: list of (label, href-relative-to-root or None for current page)."""
     p = P(depth)
-    items = [f'<li><a href="{p}">Home</a></li>']
+    root = p or "./"
+    items = [f'<li><a href="{root}">Home</a></li>']
     for label, href in trail:
         if href is None:
             items.append(f'<li><span aria-current="page">{label}</span></li>')
@@ -130,12 +137,53 @@ def faq_ld(qas):
 
 
 def org_ld():
+    """The entity block. Every page carries it, so the description here is the
+    single canonical sentence describing what Shug is — keep it in sync with the
+    homepage hero and the meta descriptions."""
     return ('<script type="application/ld+json">\n'
             '{"@context":"https://schema.org","@type":"Organization","@id":"%s",'
-            '"name":"Shug","url":"%s/","logo":"%s/assets/img/logo-512.png",'
-            '"slogan":"Blue-collar trades. White-collar profits.",'
+            '"name":"Shug","alternateName":"SHUG",'
+            '"url":"%s/","logo":"%s/assets/img/logo-512.png",'
+            '"slogan":"The AI receptionist for home-service businesses.",'
+            '"description":"Shug provides AI receptionists — AI phone agents — for '
+            'home-service businesses. Shug answers inbound calls 24/7, handles common '
+            'customer questions, captures and qualifies leads, books appointments and '
+            'estimates when configured to do so, filters spam, and transfers urgent '
+            'calls to the owner.",'
+            '"areaServed":{"@type":"Country","name":"United States"},'
+            '"address":{"@type":"PostalAddress","addressLocality":"Tualatin",'
+            '"addressRegion":"OR","addressCountry":"US"},'
+            '"telephone":"+1-503-376-8729",'
+            '"knowsAbout":["AI receptionist","AI phone agent","answering service for '
+            'contractors","missed call recovery","appointment booking","lead '
+            'qualification","home-service businesses"],'
             '"founder":{"@type":"Person","@id":"%s/about/#trent","name":"Trent Delgadillo",'
             '"jobTitle":"Founder"}}\n</script>\n' % (ORG, SITE, SITE, SITE))
+
+
+def product_ld(path="/agent/"):
+    """The AI receptionist itself, as a Service with its real published price.
+    Deliberately no aggregateRating — Shug has no published reviews, and inventing
+    them would be fabricated structured data."""
+    return ('<script type="application/ld+json">\n'
+            '{"@context":"https://schema.org","@type":"Service",'
+            '"@id":"%s/#ai-receptionist","name":"Shug AI Receptionist",'
+            '"serviceType":"AI receptionist for home-service businesses",'
+            '"description":"An AI phone agent that answers calls for home-service '
+            'businesses 24/7, handles common customer questions, captures and qualifies '
+            'leads, books appointments when configured, filters spam calls, and transfers '
+            'urgent calls to the owner.",'
+            '"url":"%s%s","provider":{"@id":"%s"},'
+            '"areaServed":{"@type":"Country","name":"United States"},'
+            '"audience":{"@type":"BusinessAudience",'
+            '"audienceType":"Home-service businesses and contractors"},'
+            '"offers":{"@type":"Offer","price":"99","priceCurrency":"USD",'
+            '"availability":"https://schema.org/InStock","url":"%s/pricing/",'
+            '"priceSpecification":[{"@type":"UnitPriceSpecification","price":"99",'
+            '"priceCurrency":"USD","unitCode":"MON","name":"Monthly service"},'
+            '{"@type":"UnitPriceSpecification","price":"198","priceCurrency":"USD",'
+            '"name":"One-time setup"}]}}\n</script>\n'
+            % (SITE, SITE, path, ORG, SITE))
 
 
 def service_ld(name, service_type, desc, price, path):
@@ -161,9 +209,9 @@ def faq_html(qas):
     return "\n".join(out)
 
 
-def cta(depth, source, heading="Let's get your phone ringing.",
-        sub="Drop your name and number — I'll personally call you within 24 hours. "
-            "No card, no pressure."):
+def cta(depth, source, heading="Stop letting the phone go to voicemail.",
+        sub="Drop your name and number and I'll set Shug up for your business. "
+            "No card, no contract, no pressure."):
     return f"""
   <section id="apply" class="sec bg-orange on-orange">
     <div class="wrap-narrow center">
@@ -183,7 +231,7 @@ def cta(depth, source, heading="Let's get your phone ringing.",
           <input id="cta-trade" name="trade" type="text" autocomplete="organization-title" placeholder="Your trade (roofing, plumbing, HVAC…)" style="flex:1 1 220px;">
           <label class="hp" for="cta-company">Company (leave blank)</label>
           <input class="hp" id="cta-company" name="company" type="text" tabindex="-1" autocomplete="off" aria-hidden="true">
-          <button class="shine" type="submit">Get My Blueprint Call</button>
+          <button class="shine" type="submit">Set Up My AI Receptionist</button>
         </div>
       </form>
       <div class="form-done" id="cta-done" hidden>
@@ -198,49 +246,50 @@ def cta(depth, source, heading="Let's get your phone ringing.",
 
 def footer(depth):
     p = P(depth)
+    root = p or "./"
     return f"""
 <footer class="foot">
   <div class="foot-top">
-    <a class="brand" href="{p}" style="padding:9px 16px;border-radius:10px;box-shadow:0 2px 0 #9C4420;" aria-label="Shug home"><span style="font-size:26px;">shug</span></a>
-    <p class="foot-tag">Blue-collar trades. White-collar profits.</p>
+    <a class="brand" href="{root}" style="padding:9px 16px;border-radius:10px;box-shadow:0 2px 0 #9C4420;" aria-label="Shug home"><span style="font-size:26px;">shug</span></a>
+    <p class="foot-tag">The AI receptionist for home-service businesses.</p>
   </div>
   <nav class="foot-nav" aria-label="Footer">
     <div>
-      <h2>Products</h2>
+      <h2>Product</h2>
       <ul>
-        <li><a href="{p}agent/">Agents</a></li>
+        <li><a href="{p}agent/">AI receptionist</a></li>
+        <li><a href="{p}pricing/">Pricing</a></li>
+        <li><a href="{p}guarantee/">The guarantee</a></li>
+        <li><a href="{p}compare/">Compare options</a></li>
         <li><a href="{p}services/websites/">Trade websites</a></li>
-        <li><a href="{p}services/local-seo/">Local SEO</a></li>
-        <li><a href="{p}services/google-ads/">Google Ads &amp; LSA</a></li>
-        <li><a href="{p}services/automations/">Automations</a></li>
       </ul>
     </div>
     <div>
-      <h2>Industries</h2>
+      <h2>By trade</h2>
       <ul>
         <li><a href="{p}industries/roofing/">Roofing</a></li>
         <li><a href="{p}industries/plumbing/">Plumbing</a></li>
         <li><a href="{p}industries/hvac/">HVAC</a></li>
-        <li><a href="{p}industries/exterior-cleaning/">Exterior cleaning</a></li>
+        <li><a href="{p}industries/electrical/">Electrical</a></li>
+        <li><a href="{p}industries/exterior-cleaning/">Pressure washing</a></li>
         <li><a href="{p}industries/landscaping/">Landscaping</a></li>
-      </ul>
-    </div>
-    <div>
-      <h2>Company</h2>
-      <ul>
-        <li><a href="{p}pricing/">Pricing</a></li>
-        <li><a href="{p}about/">About Trent</a></li>
-        <li><a href="{p}guarantee/">The guarantee</a></li>
-        <li><a href="{p}contact/">Contact</a></li>
       </ul>
     </div>
     <div>
       <h2>Learn</h2>
       <ul>
-        <li><a href="{p}blog/">Blog</a></li>
-        <li><a href="{p}blog/trades-website-that-books-jobs/">What a trades website needs</a></li>
-        <li><a href="{p}blog/get-more-google-reviews/">Getting more Google reviews</a></li>
+        <li><a href="{p}blog/ai-receptionist-for-contractors/">AI receptionist guide</a></li>
         <li><a href="{p}blog/missed-calls-are-your-biggest-leak/">Your missed-call leak</a></li>
+        <li><a href="{p}blog/get-more-google-reviews/">Getting more Google reviews</a></li>
+        <li><a href="{p}blog/">All articles</a></li>
+      </ul>
+    </div>
+    <div>
+      <h2>Company</h2>
+      <ul>
+        <li><a href="{p}about/">About Trent</a></li>
+        <li><a href="{p}locations/portland-metro/">Portland metro</a></li>
+        <li><a href="{p}contact/">Contact</a></li>
       </ul>
     </div>
     <div>
@@ -252,8 +301,8 @@ def footer(depth):
     </div>
   </nav>
   <div class="foot-base">
-    <p>joinshug.com — the growth partner for blue-collar trades.</p>
-    <p>© 2026 Shug · Trent Delgadillo</p>
+    <p>joinshug.com — AI receptionists for home-service businesses. Built in Tualatin, Oregon; serving contractors nationwide.</p>
+    <p>&copy; 2026 Shug &middot; Trent Delgadillo</p>
   </div>
 </footer>
 

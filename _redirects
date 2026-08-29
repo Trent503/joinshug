@@ -33,6 +33,15 @@
 # NOTE: no "/services/*" style splat rules. A splat also matches "/services/"
 # itself (splat = "") and redirects it to "/services/" forever.
 
+# Pages added in the AI-receptionist rework. Exact matches only — a splat here
+# would also match the destination and loop (see the note above).
+/compare              /compare/              301
+/industries/electrical  /industries/electrical/  301
+/blog/ai-receptionist-for-contractors  /blog/ai-receptionist-for-contractors/  301
+/locations                     /locations/portland-metro/  301
+/locations/                    /locations/portland-metro/  301
+/locations/portland-metro      /locations/portland-metro/  301
+
 # Cloudflare Pages deploys every file in the repo, including tools/. Those are
 # maintenance scripts with no secrets in them, but they are not part of the site.
 /tools/*  /  301
