@@ -1,0 +1,86 @@
+# Shug — Wrangler configuration.
+#
+# ---------------------------------------------------------------------------
+# THIS FILE IS DELIBERATELY LOCAL-DEVELOPMENT ONLY.
+#
+# It has NO `pages_build_output_dir` key, and that omission is intentional.
+# Cloudflare's rule: once a Pages project deploys with a wrangler file that
+# sets `pages_build_output_dir`, THAT FILE BECOMES THE SOURCE OF TRUTH and the
+# matching settings in the dashboard become read-only.
+#
+# joinshug.com is already live and configured through the dashboard, so taking
+# that over is a decision to make deliberately, not a side effect of adding a
+# config file. Without the key, this file only ever feeds `wrangler pages dev`
+# locally and production keeps reading the dashboard.
+#
+# If you later DO want config-as-code, add:
+#     pages_build_output_dir = "."
+# and understand that the dashboard's build settings stop being editable.
+# ---------------------------------------------------------------------------
+#
+# Local development:
+#   wrangler pages dev . --local
+#
+# Secrets for local dev come from .dev.vars (gitignored), never from this file.
+# This file is committed, so nothing secret may ever appear in it.
+
+name = "joinshug"
+compatibility_date = "2026-08-29"
+
+# ---------------------------------------------------------------------------
+# D1 — businesses, calls, leads. Source of truth.
+#
+# Create it once, then paste the id printed by the create command:
+#   wrangler d1 create shug
+#   wrangler d1 execute shug --local  --file=./schema.sql
+#   wrangler d1 execute shug --remote --file=./schema.sql
+#
+# The database_id below is a placeholder. `wrangler pages dev --local` works
+# without a real id; deploying or running --remote does not.
+# ---------------------------------------------------------------------------
+
+[[d1_databases]]
+binding = "DB"
+database_name = "shug"
+database_id = "REPLACE_WITH_ID_FROM_wrangler_d1_create"
+
+# ---------------------------------------------------------------------------
+# KV — read-through cache for the number -> business lookup only.
+#
+#   wrangler kv namespace create CONFIG_CACHE
+#
+# This is a cache and nothing else. Wiping it costs latency on the next call,
+# never correctness — see functions/lib/store.js.
+# ---------------------------------------------------------------------------
+
+[[kv_namespaces]]
+binding = "CONFIG_CACHE"
+id = "REPLACE_WITH_ID_FROM_wrangler_kv_namespace_create"
+
+# ---------------------------------------------------------------------------
+# KV — Jobber OAuth token store.
+#
+#   wrangler kv namespace create JOBBER_TOKENS
+#
+# Declared here so `wrangler pages dev` can run the Jobber draft locally.
+# The Jobber endpoints are NOT deployed and the draft is untouched.
+# ---------------------------------------------------------------------------
+
+[[kv_namespaces]]
+binding = "JOBBER_TOKENS"
+id = "REPLACE_WITH_ID_FROM_wrangler_kv_namespace_create"
+
+# ---------------------------------------------------------------------------
+# Plaintext variables. Anything secret belongs in .dev.vars locally and in
+# Pages -> Settings -> Variables and secrets (encrypted) in production.
+# ---------------------------------------------------------------------------
+
+[vars]
+# Retell signs the event webhook. Whether it also signs the INBOUND-call
+# webhook was not confirmed against Retell's documentation, so inbound
+# defaults to verify-if-present rather than a hard requirement that could
+# silently stop every call from being answered.
+#
+# Turn this on only after confirming a signature actually arrives — check the
+# logs for "unsigned request accepted". See functions/api/retell/inbound.js.
+RETELL_REQUIRE_INBOUND_SIGNATURE = "0"

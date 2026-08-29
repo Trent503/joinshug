@@ -1,9 +1,20 @@
-git add .gitignore
-git commit -m "Exclude deployment files"
-git push
 .git
 .wrangler
 .DS_Store
 *.log
 node_modules/
 .netlify/
+
+# Filled-in business seed. Holds a real transfer number and booking
+# destination; seed.example.sql is the committed template.
+seed.sql
+
+# Local secrets for `wrangler pages dev`. Never commit this file — it holds the
+# Retell API key and the Jobber client secret. .dev.vars.example is the
+# committed template; keep the two in sync when adding a variable.
+.dev.vars
+.dev.vars.*
+!.dev.vars.example
+.env
+.env.*
+!.env.example

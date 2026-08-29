@@ -1,0 +1,54 @@
+# Shug — local development secrets TEMPLATE.
+#
+# Copy to .dev.vars and fill in real values:
+#     cp .dev.vars.example .dev.vars
+#
+# .dev.vars is gitignored. THIS file is committed, so it must never contain a
+# real key. Keep the two in sync whenever a variable is added.
+#
+# In production these are NOT read from any file — set them at
+# Cloudflare Pages -> Settings -> Variables and secrets, and mark every value
+# below as a SECRET (encrypted), not as a plaintext variable.
+
+# ---------------------------------------------------------------------------
+# Retell
+# ---------------------------------------------------------------------------
+
+# Used for two things: authenticating calls TO Retell's API, and verifying the
+# HMAC-SHA256 signature on webhooks FROM Retell.
+#
+# It must be the key that carries the WEBHOOK BADGE in the Retell dashboard.
+# Any other key authenticates API calls fine but fails every signature check,
+# which presents as "all webhooks rejected with 401" — check this first.
+RETELL_API_KEY="key_..."
+
+# ---------------------------------------------------------------------------
+# Jobber — DRAFT, not deployed.
+#
+# Present so `wrangler pages dev` can exercise functions/api/jobber/ locally.
+# Those endpoints are not live and the draft is untouched.
+# ---------------------------------------------------------------------------
+
+JOBBER_CLIENT_ID=""
+JOBBER_CLIENT_SECRET=""
+
+# Must match the Callback URL registered in Jobber's Developer Center
+# byte-for-byte. For local dev that is the localhost form below; production
+# uses the real domain. It is deliberately not derived from the request URL.
+JOBBER_REDIRECT_URI="http://localhost:8788/api/jobber/callback"
+
+# ---------------------------------------------------------------------------
+# GoHighLevel — PLANNED, NOT INTEGRATED.
+#
+# No GoHighLevel code exists in this repo. These names are a placeholder for
+# the adapter that will sit behind businesses.booking_destination = 'gohighlevel'.
+# When that is built it uses the current OAuth 2.0 / API v2 architecture,
+# not the legacy v1 API key.
+#
+# Leave these blank. They are listed so the eventual shape is documented in one
+# place rather than rediscovered later.
+# ---------------------------------------------------------------------------
+
+# GHL_CLIENT_ID=""
+# GHL_CLIENT_SECRET=""
+# GHL_REDIRECT_URI=""
