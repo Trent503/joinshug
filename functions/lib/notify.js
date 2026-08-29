@@ -123,6 +123,27 @@ export async function queueCallNotification(env, business, lead, call) {
   return targets.length;
 }
 
+/* Replaces the body of a notification that has NOT been sent yet.
+
+   The call lifecycle gives us two chances to tell the owner about a call, and
+   they carry different quality of information. `call_ended` fires the moment
+   the call drops and knows who rang and for how long. `call_analyzed` fires a
+   few seconds later and knows what the caller actually wanted.
+
+   So the webhook queues at call_ended — guaranteeing the owner is told even if
+   analysis never lands — and calls this at call_analyzed to upgrade the text
+   to the good version. `status = 'queued'` in the WHERE is what makes it safe:
+   a notification already sent is never rewritten, so the record always matches
+   what the owner actually received. */
+export async function upgradeQueuedNotification(env, callId, body, leadId) {
+  if (!callId) return;
+  await requireDb(env).prepare(
+    `UPDATE notifications
+        SET body = ?2, lead_id = COALESCE(?3, lead_id)
+      WHERE call_id = ?1 AND status = 'queued'`
+  ).bind(callId, body, leadId || null).run();
+}
+
 export async function listPendingNotifications(env, limit) {
   const result = await requireDb(env).prepare(
     `SELECT n.*, b.notify_sms, b.notify_email

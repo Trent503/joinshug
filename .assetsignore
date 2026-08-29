@@ -22,8 +22,28 @@ tools/
 *.md
 wrangler.toml
 package.json
-.dev.vars.example
 .editorconfig
+
+# ---------------------------------------------------------------------------
+# SECRETS. A dry run WITHOUT these lines served /.dev.vars with a 200 and the
+# real Retell API key in the body. .dev.vars is gitignored, which protects it
+# from the repository and does nothing whatsoever about the asset bundle — the
+# asset directory is the working tree, not the git index.
+#
+# Both the bare name and the glob are listed: .gitignore syntax does not treat
+# `.dev.vars` as also matching `.dev.vars.local`, and a variant file appearing
+# later must not silently become public.
+# ---------------------------------------------------------------------------
+.dev.vars
+.dev.vars.*
+.env
+.env.*
+
+# The git directory. Wrangler does NOT exclude this on its own — a dry-run
+# without this line reported 935 asset files against a 28-page site, because it
+# was about to publish the entire repository history. Anything ever committed
+# would have been fetchable at https://joinshug.com/.git/... . Do not remove.
+.git/
 
 # Local state that should never reach a deploy in the first place.
 .wrangler/

@@ -52,3 +52,34 @@ JOBBER_REDIRECT_URI="http://localhost:8788/api/jobber/callback"
 # GHL_CLIENT_ID=""
 # GHL_CLIENT_SECRET=""
 # GHL_REDIRECT_URI=""
+
+# ---------------------------------------------------------------------------
+# Shug admin
+# ---------------------------------------------------------------------------
+
+# Bearer token for /api/admin/* — business provisioning and the notification
+# queue drain. This is what turns a "yes" on a sales call into a live customer,
+# so it is the most powerful credential in the system: anyone holding it can
+# create a tenant and its owner login.
+#
+# Generate with:  openssl rand -base64 32
+#
+# In production set it as a SECRET:  wrangler secret put ADMIN_TOKEN
+# The endpoints fail CLOSED (503 not_configured) when it is unset — an
+# unconfigured secret must never mean "no check".
+ADMIN_TOKEN=""
+
+# ---------------------------------------------------------------------------
+# SMS notifications — NOT CONFIGURED. See NEEDS_CONFIG.md.
+#
+# With SMS_PROVIDER unset, every owner notification is queued and durably
+# recorded, then marked 'skipped' with reason 'no_provider'. Nothing is
+# silently dropped and nothing pretends to have sent.
+#
+# Set SMS_PROVIDER="twilio" and the three values below to turn sending on.
+# ---------------------------------------------------------------------------
+
+# SMS_PROVIDER="twilio"
+# TWILIO_ACCOUNT_SID=""
+# TWILIO_AUTH_TOKEN=""
+# TWILIO_FROM_NUMBER="+1..."
