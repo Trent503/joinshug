@@ -185,7 +185,7 @@ export async function onRequestPost(context) {
          notify_sms, notify_email,
          booking_destination, booking_config, minutes_included, status, is_demo,
          created_at, updated_at
-       ) VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11,?12,?13,?14,?15,?16,?17,?18,?19,?20,?21,?22,?22)`
+       ) VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11,?12,?13,?14,?15,?16,?17,?18,?19,?20,?21,?22,?23)`
     ).bind(
       businessId, name, phone, timezone, input.trade ?? null,
       input.servicesOffered ?? null, input.servicesDeclined ?? null,
@@ -198,7 +198,7 @@ export async function onRequestPost(context) {
       Number(input.minutesIncluded) > 0 ? Number(input.minutesIncluded) : 120,
       status,
       input.isDemo ? 1 : 0,
-      now
+      now, now
     ),
 
     env.DB.prepare(

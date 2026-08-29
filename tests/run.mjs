@@ -280,8 +280,15 @@ async function testAuth() {
   checkEqual('me returns the right business', me.body.business.id, businessA.id);
 
   /* The password verifier must never be a bare hash of the password. */
+  if (!ownerA || !ownerA.email) {
+    throw new Error('ownerA or ownerA.email is missing: ' + JSON.stringify(ownerA));
+  }
   const stored = sql("SELECT password_hash, password_salt, password_iterations " +
     "FROM users WHERE email = '" + ownerA.email + "'");
+  if (!stored || !stored[0]) {
+    throw new Error('Password query returned no results for email: ' + ownerA.email +
+      '. Query: SELECT ... FROM users WHERE email = \'' + ownerA.email + '\'');
+  }
   check('password is stored with a per-user salt',
     Boolean(stored[0] && stored[0].password_salt && stored[0].password_salt.length >= 20));
   check('password uses a high PBKDF2 iteration count',
