@@ -400,3 +400,167 @@ would call.
 `node tests/run.mjs` → 173 · `node tests/ui.mjs` → 75
 
 **NEXT:** Phase 15 — remote schema, production secrets, deploy, verify live.
+
+---
+
+## Phase 15 — DEPLOYED AND VERIFIED LIVE
+
+**Live version: `824dab12-5669-4d8e-9a08-9ff135e23627`**
+Rollback target (the pre-session deployment): `b76ddb91-6650-4585-86ca-6bcdf8183c19`
+→ `npx wrangler rollback b76ddb91-6650-4585-86ca-6bcdf8183c19`
+
+### What shipped
+
+1. `wrangler d1 execute shug --remote --file=./schema.sql` — 9 tables, 18
+   indexes, 1 view. The database was empty beforehand (1 internal table), so
+   this was creation, not migration.
+2. `wrangler secret put RETELL_API_KEY` — read from `.dev.vars`, never printed.
+3. `wrangler secret put ADMIN_TOKEN` — freshly generated. **Your copy is in
+   `.dev.vars` as `ADMIN_TOKEN_PRODUCTION`** (gitignored, and excluded from the
+   asset bundle). Move it to your password manager and delete that block.
+4. `wrangler deploy` — the worker entry point, the API, and `/app/`.
+
+### Marketing site: byte-identical
+
+Every page compared before and after. `/`, `/pricing/`, `/about/`, `/agent/`,
+`/contact/`, `/industries/*`, `/services/*`, `/blog/`, `/compare/`,
+`/locations/portland-metro/`, `site.css`, `site.js`, `sitemap.xml` — all 200,
+all identical byte counts. Formspree `xbdvybew` intact. `site.css?v=3c348920`
+unchanged. Redirects still fire.
+
+`robots.txt` is the only intentional change: +204 bytes for `Disallow: /app/`.
+
+### The `/.git` exposure is closed
+
+`https://joinshug.com/.git/config` and `/.git/index` returned **200** before
+this deploy and return **404** now.
+
+### THREE BUGS FOUND ONLY IN PRODUCTION
+
+Worth recording, because in each case the local environment was more permissive
+than the real one and 249 green local assertions were not enough.
+
+**1. PBKDF2 iteration ceiling.** The Cloudflare Workers runtime rejects PBKDF2
+above **100,000 iterations**. `wrangler dev` does not enforce that. 210,000 —
+the OWASP baseline — passed 173 local assertions and threw on the very first
+provisioning call against joinshug.com, surfacing as `internal_error`.
+
+Capped at 100,000 in `functions/lib/auth.js`, clamped in `hashPassword()` so a
+caller cannot exceed it, and `verifyPassword()` now names this specific cause
+instead of reporting "wrong password". `tests/run.mjs` asserts the ceiling —
+that assertion is the only guard, because the environment that would catch it
+honestly is the one the tests do not run in.
+
+**2. Skipped notifications were orphaned from their lead.** A business with no
+notification target gets its row written straight to `'skipped'`, but
+`upgradeQueuedNotification` only matched `status = 'queued'` — so `lead_id`
+stayed NULL and the lead detail page (which lists by `lead_id`) showed nothing.
+"We had nowhere to send this" became indistinguishable from "nothing was
+attempted", which is exactly what the separate `skipped` state exists to
+prevent. The guard is now `status != 'sent'`.
+
+Local tests missed it because business A in the suite HAS a notification target
+and covered only the other branch. There is now a test for the no-target path.
+
+**3. `wrangler dev` reload loop (local only).** The asset directory is the repo
+root, so wrangler's watcher watches it — including `.wrangler/state/`, where
+local D1 lives. Every database write during a test run looked like a source
+change and triggered a reload; the server eventually wedged in a reload loop
+while still holding the port, presenting as requests hanging against a server
+that was definitely listening.
+
+Fixed by moving local state outside the repo. Reload count went from unbounded
+to 1. `tests/lib.mjs`, `tools/seed-demo.mjs` and `tools/add-user.mjs` all honour
+`SHUG_PERSIST_TO`.
+
+### Production end-to-end test: 35/35 against joinshug.com
+
+Provisioned a throwaway tenant on the live site, drove a full Retell call
+lifecycle through the live webhooks with real HMAC signatures, signed into the
+live dashboard as the new owner, and checked what the customer would see:
+config handed to Retell, unsigned webhook rejected, lead captured and
+normalised, call summary and transcript stored, the agent's appointment turned
+into a `requested` booking, 222 seconds metered as 4 of 120 minutes, a repeat
+call folding into the SAME lead with `call_count` 2 and the first call's address
+preserved, and the owner notification queued and honestly marked `skipped`.
+
+The throwaway tenants were then deleted. **Production D1 is empty and ready for
+your first real customer** (0 businesses, users, leads, calls, sessions).
+
+---
+
+## OPERATIONS
+
+### Provisioning a customer (under a minute)
+
+```bash
+ADMIN=$(grep ADMIN_TOKEN_PRODUCTION .dev.vars | cut -d= -f2-)
+
+curl -sX POST https://joinshug.com/api/admin/provision \
+  -H "Authorization: Bearer $ADMIN" \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "name": "Rivera Plumbing",
+    "phone": "+15035551234",
+    "timezone": "America/Los_Angeles",
+    "trade": "plumbing",
+    "ownerEmail": "ana@riveraplumbing.com",
+    "ownerName": "Ana Rivera",
+    "transferNumber": "+15035559000",
+    "notifySms": "+15035559000",
+    "servicesOffered": "Repairs, drain cleaning, water heaters",
+    "servicesDeclined": "Septic, well pumps",
+    "serviceArea": "Portland metro",
+    "hours": "Mon-Fri 7am-5pm, Saturday emergencies",
+    "greeting": "Thanks for calling Rivera Plumbing, this is Shug.",
+    "tone": "Plain-spoken and quick",
+    "urgencyRules": "Active leak, no hot water, sewage backing up, gas smell",
+    "status": "active"
+  }' | python3 -m json.tool
+```
+
+Returns the owner's **generated password once** — read it to them on the call.
+It is never retrievable again; only the PBKDF2 verifier is stored.
+
+Then the one step no code can do: in Retell, point that number at
+`https://joinshug.com/api/retell/inbound` (inbound) and
+`https://joinshug.com/api/retell/webhook` (call events). The response's
+`nextStep` field says this with the number filled in.
+
+### Suspending a customer for non-payment
+
+```bash
+npx wrangler d1 execute shug --remote \
+  --command "UPDATE businesses SET status='suspended' WHERE id='<business-id>'"
+
+# The number -> business lookup is cached in KV for 300 seconds, so without
+# this the phone keeps answering for up to five minutes.
+npx wrangler kv key delete --binding CONFIG_CACHE --remote "number:+1503XXXXXXX"
+```
+
+A suspended business can still READ its dashboard (they must be able to see
+their own data and their invoice) but every write returns 402, and the inbound
+webhook rejects the call rather than answering one we will not bill for.
+
+### Local development
+
+```bash
+export SHUG_PERSIST_TO=/tmp/shug-state          # MUST be outside the repo
+npx wrangler dev --port 8787 --persist-to "$SHUG_PERSIST_TO"
+
+npx wrangler d1 execute shug --local --persist-to "$SHUG_PERSIST_TO" --file=./schema.sql
+node tools/seed-demo.mjs --reset
+node tools/add-user.mjs shug-demo demo@joinshug.com
+
+node tests/run.mjs     # 178 assertions
+node tests/ui.mjs      #  75 assertions
+```
+
+## FINAL TEST TOTALS
+
+| Suite | Assertions | Result |
+|---|---|---|
+| `tests/run.mjs` (end-to-end, local) | 178 | ✅ 0 failing |
+| `tests/ui.mjs` (dashboard, local) | 75 | ✅ 0 failing |
+| Production smoke test (live joinshug.com) | 35 | ✅ 0 failing |
+| **Total** | **288** | **✅** |

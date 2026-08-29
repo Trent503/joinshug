@@ -67,9 +67,16 @@ if (password.length < 10) {
 
 const target = REMOTE ? '--remote' : '--local';
 
+/* See tests/lib.mjs for why local state may need to live outside the repo. */
+const PERSIST_TO = process.env.SHUG_PERSIST_TO || null;
+function d1(extra) {
+  const args = ['wrangler', 'd1', 'execute', 'shug', target];
+  if (!REMOTE && PERSIST_TO) args.push('--persist-to', PERSIST_TO);
+  return args.concat(extra);
+}
+
 function run(command) {
-  const out = execFileSync('npx',
-    ['wrangler', 'd1', 'execute', 'shug', target, '--json', '--command', command],
+  const out = execFileSync('npx', d1(['--json', '--command', command]),
     { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] });
   return JSON.parse(out.slice(out.indexOf('[')))[0].results;
 }
@@ -113,7 +120,7 @@ const file = join(tmpdir(), 'shug-user-' + Date.now() + '.sql');
 writeFileSync(file, sql + '\n');
 
 try {
-  execFileSync('npx', ['wrangler', 'd1', 'execute', 'shug', target, '--file', file],
+  execFileSync('npx', d1(['--file', file]),
     { stdio: ['ignore', 'pipe', 'pipe'], encoding: 'utf8' });
 } catch (e) {
   console.error('Failed: ' + (e.stdout || '') + (e.stderr || ''));

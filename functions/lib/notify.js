@@ -123,24 +123,38 @@ export async function queueCallNotification(env, business, lead, call) {
   return targets.length;
 }
 
-/* Replaces the body of a notification that has NOT been sent yet.
+/* Fills in a notification that has NOT been sent yet: the better message body,
+   and the lead the call turned out to belong to.
 
    The call lifecycle gives us two chances to tell the owner about a call, and
    they carry different quality of information. `call_ended` fires the moment
-   the call drops and knows who rang and for how long. `call_analyzed` fires a
-   few seconds later and knows what the caller actually wanted.
+   the call drops and knows who rang and for how long — but not yet who they
+   are or what they want, because there is no lead at that point. `call_analyzed`
+   fires a few seconds later and knows both.
 
    So the webhook queues at call_ended — guaranteeing the owner is told even if
-   analysis never lands — and calls this at call_analyzed to upgrade the text
-   to the good version. `status = 'queued'` in the WHERE is what makes it safe:
-   a notification already sent is never rewritten, so the record always matches
-   what the owner actually received. */
+   analysis never lands — and calls this at call_analyzed to fill in the rest.
+
+   `status != 'sent'` IS THE CORRECT GUARD, and it is deliberately not
+   `status = 'queued'`.
+
+   A business with no notification target yet gets its row written straight to
+   'skipped' with reason 'no_target'. Matching only 'queued' left those rows
+   with lead_id NULL forever, so the lead detail page — which lists a lead's
+   notifications by lead_id — showed nothing at all, and "we had nowhere to
+   send this" became indistinguishable from "nothing was ever attempted". That
+   is precisely the failure this module's separate 'skipped' state exists to
+   prevent, so it must not be reintroduced by the WHERE clause.
+
+   Excluding only 'sent' keeps the one guarantee that matters: a notification
+   the owner has already received is never retroactively rewritten, so the
+   stored record always matches what actually went out. */
 export async function upgradeQueuedNotification(env, callId, body, leadId) {
   if (!callId) return;
   await requireDb(env).prepare(
     `UPDATE notifications
         SET body = ?2, lead_id = COALESCE(?3, lead_id)
-      WHERE call_id = ?1 AND status = 'queued'`
+      WHERE call_id = ?1 AND status != 'sent'`
   ).bind(callId, body, leadId || null).run();
 }
 

@@ -28,7 +28,7 @@
    local D1. */
 
 import {
-  BASE, devVars, sql, makeClient, retellSignature,
+  BASE, devVars, sql, bustNumberCache, makeClient, retellSignature,
   group, check, checkEqual, summary, randomSuffix
 } from './lib.mjs';
 
@@ -287,6 +287,21 @@ async function testAuth() {
   check('password uses a high PBKDF2 iteration count',
     Number(stored[0].password_iterations) >= 100000,
     'iterations = ' + (stored[0] && stored[0].password_iterations));
+
+  /* REGRESSION GUARD. The Cloudflare Workers runtime rejects PBKDF2 above
+     100,000 iterations; `wrangler dev` does not enforce that, so a higher
+     value passes every test here and then throws on the first real request in
+     production. It happened: 210,000 cleared 173 local assertions and failed
+     on the first provisioning call against joinshug.com.
+
+     This assertion is the only thing standing between that mistake and
+     production, because the environment that would catch it honestly is the
+     one the tests do not run in. */
+  check('and stays at or below the Workers runtime ceiling of 100,000 — ' +
+    'above it, logins throw in production and pass locally',
+    Number(stored[0].password_iterations) <= 100000,
+    'iterations = ' + (stored[0] && stored[0].password_iterations) +
+    ' — this row can never verify on Cloudflare');
   check('stored hash is not a bare SHA-256 of the password',
     stored[0].password_hash.length > 40 && !/^[0-9a-f]{64}$/.test(stored[0].password_hash));
 
@@ -821,6 +836,40 @@ async function testRecords() {
     afterDrain.some(function (n) { return n.error === 'no_provider' || n.error === 'no_target'; }),
     JSON.stringify(afterDrain));
 
+  /* A business with NO notification target must still get a notification row,
+     and that row must still be attached to its lead.
+
+     Business B was provisioned without notifySms or notifyEmail, so its rows
+     are written straight to 'skipped'. An earlier version only filled in
+     lead_id for rows still 'queued', which left these orphaned and invisible on
+     the lead page — "we had nowhere to send this" looked identical to "nothing
+     was attempted". Caught in production, not here, because business A in this
+     suite HAS a target and covered the other branch. */
+  {
+    const bPhone = '+15085550777';
+    const noTargetCall = callPayload({ to_number: B_NUMBER, from_number: bPhone });
+    await postWebhook({ event: 'call_ended', call: noTargetCall });
+    await postWebhook({
+      event: 'call_analyzed',
+      call: Object.assign({}, noTargetCall, {
+        call_analysis: {
+          call_summary: 'Caller with no owner notification target configured.',
+          custom_analysis_data: { name: 'No Target Caller', job_description: 'roof leak' }
+        }
+      })
+    });
+
+    const orphan = sql("SELECT n.status, n.error, n.lead_id FROM notifications n " +
+      "WHERE n.call_id = '" + noTargetCall.call_id + "'");
+    check('a business with no notification target still gets a notification row',
+      orphan.length === 1, JSON.stringify(orphan));
+    checkEqual('recorded as skipped, not failed', orphan[0] && orphan[0].status, 'skipped');
+    checkEqual('with the reason stated plainly', orphan[0] && orphan[0].error, 'no_target');
+    check('AND it is attached to the lead, so the owner can see it was attempted',
+      Boolean(orphan[0] && orphan[0].lead_id),
+      'lead_id = ' + JSON.stringify(orphan[0] && orphan[0].lead_id));
+  }
+
   /* One call must never text the owner twice. */
   const dupCall = callPayload({ to_number: A_NUMBER, from_number: '+15035553333' });
   await postWebhook({ event: 'call_ended', call: dupCall });
@@ -1058,6 +1107,15 @@ async function testSuspension() {
 
   sql("UPDATE businesses SET status = 'suspended' WHERE id = '" + businessB.id + "'");
 
+  /* The number -> business lookup is cached in KV for 300 seconds, so a status
+     changed by direct SQL does not reach live calls until the entry expires.
+     That is the documented, deliberate trade — the inbound webhook is on the
+     path of every ringing phone — and an operator suspending a customer has to
+     do this same bust for it to take effect now rather than in five minutes.
+     Doing it here makes the test match the real procedure instead of quietly
+     depending on the cache being cold. */
+  bustNumberCache(B_NUMBER);
+
   const read = await clientB.get('/api/overview');
   checkEqual('a suspended business can still READ its own data', read.status, 200);
 
@@ -1083,6 +1141,7 @@ async function testSuspension() {
     JSON.stringify(body));
 
   sql("UPDATE businesses SET status = 'active' WHERE id = '" + businessB.id + "'");
+  bustNumberCache(B_NUMBER);
   /* The inbound path caches number->business in KV for 5 minutes, so the
      un-suspend needs the cache busting to be observable. Proving the cache is
      a cache (and never a source of truth) is worth an assertion. */

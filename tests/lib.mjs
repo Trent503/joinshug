@@ -46,10 +46,30 @@ export function devVars() {
 
    Slow (a wrangler process per call), so it is used sparingly and never inside
    a loop. */
+/* LOCAL STATE LOCATION.
+
+   `wrangler dev` serves the repo root as its asset directory, and its file
+   watcher watches that directory. The default local D1/KV state lives at
+   `.wrangler/state/` — INSIDE the repo root — so every database write during a
+   test run looks like a source change, triggers a reload, and the dev server
+   eventually wedges in a reload loop while still holding the port. It presents
+   as requests hanging against a server that is definitely listening.
+
+   Setting SHUG_PERSIST_TO to a path outside the repo breaks that loop. Both
+   `wrangler dev` and every `wrangler d1 execute --local` must be given the
+   SAME directory or they will be looking at two different databases. */
+export const PERSIST_TO = process.env.SHUG_PERSIST_TO || null;
+
+function d1Args(extra) {
+  const args = ['wrangler', 'd1', 'execute', 'shug', '--local'];
+  if (PERSIST_TO) args.push('--persist-to', PERSIST_TO);
+  return args.concat(extra);
+}
+
 export function sql(command) {
   const out = execFileSync(
     'npx',
-    ['wrangler', 'd1', 'execute', 'shug', '--local', '--json', '--command', command],
+    d1Args(['--json', '--command', command]),
     { cwd: new URL('..', import.meta.url).pathname, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] }
   );
 
@@ -61,10 +81,35 @@ export function sql(command) {
   return (parsed[0] && parsed[0].results) || [];
 }
 
+/* Deletes a key from the LOCAL CONFIG_CACHE namespace.
+
+   Needed because the number -> business lookup is cached in KV for 300
+   seconds. That is correct and deliberate — the inbound webhook is on the path
+   of every ringing phone — but it means a business status changed by direct SQL
+   keeps answering calls until the entry expires.
+
+   An operator suspending a customer for non-payment has to do exactly this, so
+   the test doing it is the test matching reality rather than working around it.
+   See SESSION_LOG.md, "Suspending a customer". */
+export function bustNumberCache(e164) {
+  const args = ['wrangler', 'kv', 'key', 'delete', '--binding', 'CONFIG_CACHE', '--local'];
+  if (PERSIST_TO) args.push('--persist-to', PERSIST_TO);
+  args.push('number:' + e164);
+  try {
+    execFileSync('npx', args, {
+      cwd: new URL('..', import.meta.url).pathname,
+      encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe']
+    });
+  } catch (e) {
+    /* A key that was never cached is not an error — the next lookup goes to
+       D1 either way, which is the outcome the caller wanted. */
+  }
+}
+
 export function sqlFile(path) {
   execFileSync(
     'npx',
-    ['wrangler', 'd1', 'execute', 'shug', '--local', '--file', path],
+    d1Args(['--file', path]),
     { cwd: new URL('..', import.meta.url).pathname, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] }
   );
 }

@@ -50,18 +50,26 @@
 import { isoNow } from './http.js';
 
 /* ---------------------------------------------------------------------------
-   PBKDF2 cost.
+   PBKDF2 cost, and a PLATFORM CEILING THAT IS NOT OPTIONAL.
 
-   210,000 is the OWASP baseline for PBKDF2-HMAC-SHA256 and is what new
-   passwords are hashed at. It is a CONSTANT FOR WRITES ONLY — verification
-   always uses the count stored on the user's row, so raising this number never
-   locks anybody out.
+   The Cloudflare Workers runtime rejects a PBKDF2 deriveBits call above
+   100,000 iterations. `wrangler dev` (local workerd) does NOT enforce that
+   limit, so a higher number passes every local test and then throws on the
+   first real request in production.
 
-   Measured on workerd (see tests/): a hash at this cost is well inside the
-   per-request CPU budget, and it runs on login and password-change only, never
-   on an ordinary authenticated request (those are one indexed SELECT).
+   This was not theoretical. An earlier version of this file used 210,000 — the
+   OWASP baseline — and it worked through 173 local assertions before failing
+   on the first provisioning call against joinshug.com with a caught exception
+   surfacing as `internal_error`. If a future change raises this, it will break
+   in production and nowhere else. There is a test asserting the ceiling.
+
+   100,000 iterations of PBKDF2-HMAC-SHA256 is still a real KDF: it is roughly
+   five orders of magnitude more expensive per guess than a bare SHA-256, which
+   is the comparison that matters. It runs on login and password-change only,
+   never on an ordinary authenticated request — those are one indexed SELECT.
    --------------------------------------------------------------------------- */
-const PBKDF2_ITERATIONS = 210000;
+export const PBKDF2_MAX_ITERATIONS = 100000;   // Cloudflare Workers hard limit
+const PBKDF2_ITERATIONS = PBKDF2_MAX_ITERATIONS;
 const SALT_BYTES = 16;
 const DERIVED_BITS = 256;
 
@@ -135,7 +143,10 @@ async function pbkdf2(password, salt, iterations) {
 }
 
 export async function hashPassword(password, iterations) {
-  const rounds = iterations || PBKDF2_ITERATIONS;
+  /* Clamped rather than trusted. A caller asking for more than the runtime
+     allows would produce a row that can never be verified in production —
+     which presents to its owner as "my password stopped working". */
+  const rounds = Math.min(iterations || PBKDF2_ITERATIONS, PBKDF2_MAX_ITERATIONS);
   const salt = crypto.getRandomValues(new Uint8Array(SALT_BYTES));
   const derived = await pbkdf2(password, salt, rounds);
 
@@ -161,7 +172,18 @@ export async function verifyPassword(password, stored) {
     const derived = await pbkdf2(password, salt, iterations);
     return timingSafeEqual(derived, expected);
   } catch (e) {
-    console.warn('auth: password verification failed on a malformed user row');
+    /* Distinguish the two ways this throws. A row stored above the runtime's
+       PBKDF2 ceiling verifies fine locally and throws in production, and
+       reporting that as "wrong password" would send someone hunting for a
+       typo that is not there. */
+    const iterations = Number(stored.password_iterations) || 0;
+    if (iterations > PBKDF2_MAX_ITERATIONS) {
+      console.error('auth: user row stores ' + iterations + ' PBKDF2 iterations, ' +
+        'above the runtime limit of ' + PBKDF2_MAX_ITERATIONS +
+        ' — this password can never verify here. Reset it.');
+    } else {
+      console.warn('auth: password verification failed on a malformed user row');
+    }
     return false;
   }
 }

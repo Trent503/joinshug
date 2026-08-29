@@ -198,7 +198,77 @@ visible orange focus rings, visually-hidden `<label>`s on every form field, and
 
 ---
 
-## Deploying to Cloudflare Pages
+## ⚠️ THIS IS A WORKER, NOT A PAGES PROJECT
+
+Everything below this heading that says "Pages" is **wrong**, and was wrong
+before anyone noticed. joinshug.com is a **Cloudflare Worker with static
+assets** named `joinshug`. Verified, not assumed:
+
+```
+wrangler pages project list                    -> empty
+wrangler pages deployment list -p joinshug     -> "Project not found"
+wrangler deployments list                      -> real worker deployments
+```
+
+The consequence was real: `functions/` is a **Pages-only** routing convention, so
+every backend endpoint under it was unreachable — `/api/retell/inbound` returned
+404 in production. `worker/index.js` plus `main` and `[assets]` in
+`wrangler.toml` is what fixed it. See `SESSION_LOG.md`.
+
+**Deploy:**
+
+```bash
+npx wrangler deploy
+```
+
+`run_worker_first = ["/api/*"]` means the worker script runs ONLY for API paths.
+Every marketing page, the stylesheet and the images are served straight from the
+asset store, exactly as before — same behaviour, same cost.
+
+`.assetsignore` keeps server code, schema, tests, tooling, `.git/` and
+`.dev.vars` out of the public bundle. **Do not remove `.git/` or `.dev.vars`
+from it** — before those lines existed, `https://joinshug.com/.git/config`
+returned 200 and served the repository, and a local dry run served `.dev.vars`
+with the live Retell key in the body.
+
+### The product
+
+The marketing site is only half of what is deployed. The other half:
+
+| Path | What it is |
+|---|---|
+| `/app/` | the customer dashboard — vanilla HTML/CSS/JS, no framework |
+| `/api/retell/*` | the AI receptionist's webhooks |
+| `/api/auth/*`, `/api/leads`, `/api/calls`, … | the dashboard's API |
+| `/api/admin/provision` | turns a "yes" on a sales call into a live customer |
+
+`SESSION_LOG.md` is the build log and the operations runbook.
+`NEEDS_CONFIG.md` is every credential still required.
+
+### Local development
+
+```bash
+# MUST be outside the repo: wrangler's watcher watches the asset directory,
+# which is the repo root, so .wrangler/state writes trigger an endless reload.
+export SHUG_PERSIST_TO=/tmp/shug-state
+npx wrangler dev --port 8787 --persist-to "$SHUG_PERSIST_TO"
+
+npx wrangler d1 execute shug --local --persist-to "$SHUG_PERSIST_TO" --file=./schema.sql
+node tools/seed-demo.mjs --reset          # a demo tenant with realistic data
+node tools/add-user.mjs shug-demo you@example.com
+
+node tests/run.mjs    # 178 end-to-end assertions
+node tests/ui.mjs     #  75 dashboard assertions
+```
+
+---
+
+## Deploying to Cloudflare Pages — HISTORICAL, SEE ABOVE
+
+*The section below describes a Pages setup this project never actually used.
+Kept because the `_headers` / `_redirects` behaviour it documents is accurate
+(Workers Static Assets honours both), but ignore anything about creating a Pages
+project.*
 
 No build step. Cloudflare Pages serves the repo root as-is.
 

@@ -26,6 +26,16 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
 const REMOTE = process.argv.includes('--remote');
+
+/* See tests/lib.mjs for why local state may need to live outside the repo:
+   wrangler's watcher treats .wrangler/state writes as source changes and
+   reload-loops. Must match whatever `wrangler dev` was given. */
+const PERSIST_TO = process.env.SHUG_PERSIST_TO || null;
+function d1(extra) {
+  const args = ['wrangler', 'd1', 'execute', 'shug', REMOTE ? '--remote' : '--local'];
+  if (!REMOTE && PERSIST_TO) args.push('--persist-to', PERSIST_TO);
+  return args.concat(extra);
+}
 const RESET = process.argv.includes('--reset');
 const BUSINESS_ID = 'shug-demo';
 const TARGET_MINUTES = 87;
@@ -444,7 +454,7 @@ console.log('Seeding the demo tenant into ' + (REMOTE ? 'PRODUCTION' : 'local') 
 if (RESET) console.log('  (--reset: removing the existing demo tenant first)');
 
 try {
-  execFileSync('npx', ['wrangler', 'd1', 'execute', 'shug', target, '--file', file],
+  execFileSync('npx', d1(['--file', file]),
     { stdio: ['ignore', 'pipe', 'pipe'], encoding: 'utf8' });
 } catch (e) {
   console.error('\nSeed failed:\n' + (e.stdout || '') + (e.stderr || ''));
@@ -458,8 +468,7 @@ unlinkSync(file);
    arithmetic above. If these disagree the demo is wrong on screen, which is
    the one place it must not be. */
 function readBack(command) {
-  const out = execFileSync('npx',
-    ['wrangler', 'd1', 'execute', 'shug', target, '--json', '--command', command],
+  const out = execFileSync('npx', d1(['--json', '--command', command]),
     { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] });
   const start = out.indexOf('[');
   return JSON.parse(out.slice(start))[0].results;
