@@ -1,19 +1,24 @@
-/* Shug — data access for the AI receptionist.
+/* Shug — data access for businesses, phone numbers, calls, and leads.
 
-   Every read and write of business config, calls, and leads goes through here,
-   so the storage split is decided in one file:
+   Every read and write of those four goes through here, so the storage split is
+   decided in exactly one file:
 
-     D1 (env.DB)            source of truth. Anything queried or aggregated:
-                            businesses, calls, leads, minute totals.
-     KV (env.CONFIG_CACHE)  read-through cache for number -> business only.
+     D1 (env.DB)            source of truth. Anything queried or aggregated.
+     KV (env.CONFIG_CACHE)  read-through cache for number -> business ONLY.
                             The inbound-call webhook has a 10-second budget and
                             is on the path of every ringing phone; KV is single
                             digit ms at the edge where D1 is tens.
 
-   KV is a cache here and nothing else. It is never written to as a source of
+   KV is a cache here and nothing else. It is never written as a source of
    truth, so a cold or wiped namespace costs latency, never correctness.
 
-   This module exports no onRequest* handler, so Pages adds no route for it. */
+   TENANCY: every function below that touches a business-owned row takes
+   businessId as its FIRST argument and puts it in the WHERE clause. There is
+   deliberately no "get lead by id" that does not also check the business — a
+   caller cannot forget to scope a query if the unscoped version does not exist.
+
+   Bookings, follow-ups and notifications live in crm.js and notify.js.
+   This module exports no onRequest* handler, so it is not routable. */
 
 import { billedMonth, isoNow } from './http.js';
 
@@ -26,39 +31,81 @@ const CACHE_TTL_SECONDS = 300;
 
 /* ---- Phone numbers ---------------------------------------------------- */
 
-/* Retell sends E.164 ("+15033768729"). Normalising both sides of the lookup
-   means a business row entered as "(503) 376-8729" still resolves instead of
-   silently never matching — which would present as "the agent answers with
-   default config" rather than as an error, and is the single easiest way for
-   this system to be quietly broken in production. */
+/* Retell sends E.164 ("+15033768729"). Normalising both sides of every lookup
+   and every write means a number entered as "(503) 376-8729" still resolves
+   instead of silently never matching — which would present as "the agent
+   answers with default config", not as an error, and is the single easiest way
+   for this system to be quietly broken in production.
+
+   This is also the lead dedupe key, so it has a second job: two spellings of
+   the same caller's number must produce the same string, or a repeat customer
+   becomes two leads. */
 export function normalizeE164(value) {
   if (!value) return null;
-  const digits = String(value).replace(/[^\d+]/g, '');
-  if (!digits) return null;
-  if (digits.startsWith('+')) return '+' + digits.slice(1).replace(/\D/g, '');
 
-  const bare = digits.replace(/\D/g, '');
-  if (bare.length === 10) return '+1' + bare;            // US, no country code
-  if (bare.length === 11 && bare.startsWith('1')) return '+' + bare;
+  const trimmed = String(value).trim();
+  if (!trimmed) return null;
+
+  /* Anonymous / blocked caller ID arrives as a word, not a number. Returning
+     null here (rather than "+") is what routes those to a per-call lead
+     instead of collapsing every withheld-number caller into one. */
+  if (/^(anonymous|unknown|private|restricted|blocked|unavailable)$/i.test(trimmed)) {
+    return null;
+  }
+
+  const hasPlus = trimmed.charAt(0) === '+';
+  const bare = trimmed.replace(/\D/g, '');
+  if (!bare) return null;
+
+  if (hasPlus) return '+' + bare;
+  if (bare.length === 10) return '+1' + bare;             // US, no country code
+  if (bare.length === 11 && bare.charAt(0) === '1') return '+' + bare;
   return '+' + bare;
+}
+
+/* Display form for the dashboard: +15033768729 -> (503) 376-8729.
+   Anything that is not a NANP number is shown as-is — inventing a format for a
+   number we do not understand is worse than showing the raw E.164. */
+export function formatPhone(e164) {
+  if (!e164) return '';
+  const m = /^\+1(\d{3})(\d{3})(\d{4})$/.exec(String(e164));
+  if (!m) return String(e164);
+  return '(' + m[1] + ') ' + m[2] + '-' + m[3];
 }
 
 /* ---- Businesses ------------------------------------------------------- */
 
 function requireDb(env) {
   if (!env.DB) {
-    console.error('store: D1 binding DB is not bound to this Pages project');
+    console.error('store: D1 binding DB is not bound to this worker');
     throw new Error('db_not_bound');
   }
   return env.DB;
 }
 
+/* Resolution order is phone_numbers first, then businesses.phone_e164.
+
+   phone_numbers is the routing table and is authoritative — it is where a
+   second number for an existing customer goes. businesses.phone_e164 is the
+   fallback so a business row created before its routing row (or by hand)
+   still answers its own phone. Provisioning writes both, so in practice the
+   first query hits. */
 async function businessByNumberFromDb(env, e164) {
-  const row = await requireDb(env)
-    .prepare('SELECT * FROM businesses WHERE phone_e164 = ? LIMIT 1')
-    .bind(e164)
-    .first();
-  return row || null;
+  const db = requireDb(env);
+
+  const routed = await db.prepare(
+    `SELECT b.* FROM phone_numbers p
+       JOIN businesses b ON b.id = p.business_id
+      WHERE p.e164 = ? AND p.status = 'active'
+      LIMIT 1`
+  ).bind(e164).first();
+  if (routed) return routed;
+
+  const direct = await db.prepare(
+    'SELECT * FROM businesses WHERE phone_e164 = ? LIMIT 1'
+  ).bind(e164).first();
+
+  return direct || null;
 }
 
 /* Read-through cache. A miss, a cold namespace, or an unparseable entry all
@@ -75,7 +122,7 @@ export async function businessByNumber(env, rawNumber) {
       if (cached) {
         const parsed = JSON.parse(cached);
         /* A negative entry — the number is not ours. Cached deliberately so a
-           wrong-number or scanner hitting the webhook cannot make D1 the
+           wrong-number or a scanner hitting the webhook cannot make D1 the
            bottleneck. */
         return parsed && parsed.__miss ? null : parsed;
       }
@@ -122,6 +169,52 @@ export async function businessById(env, id) {
   return row || null;
 }
 
+/* The only fields /app/settings/ is allowed to change. Anything not on this
+   list is ignored rather than rejected, so a future field on the form cannot
+   accidentally become writable by being added to the request body. */
+const BUSINESS_WRITABLE = [
+  'name', 'timezone', 'trade', 'services_offered', 'services_declined',
+  'service_area', 'service_area_notes', 'hours', 'greeting', 'tone',
+  'urgency_rules', 'transfer_number', 'notify_sms', 'notify_email'
+];
+
+export async function updateBusiness(env, businessId, patch) {
+  const sets = [];
+  const values = [];
+
+  for (const field of BUSINESS_WRITABLE) {
+    if (!Object.prototype.hasOwnProperty.call(patch, field)) continue;
+    let value = patch[field];
+    if (typeof value === 'string') value = value.trim();
+    if (value === '') value = null;
+    /* Both of these are dialled or messaged by the system, so they are stored
+       in the one format everything else expects. */
+    if (field === 'transfer_number' || field === 'notify_sms') {
+      value = normalizeE164(value);
+    }
+    sets.push(field + ' = ?');
+    values.push(value);
+  }
+
+  if (sets.length === 0) return businessById(env, businessId);
+
+  sets.push('updated_at = ?');
+  values.push(isoNow());
+  values.push(businessId);
+
+  await requireDb(env)
+    .prepare('UPDATE businesses SET ' + sets.join(', ') + ' WHERE id = ?')
+    .bind(...values)
+    .run();
+
+  const updated = await businessById(env, businessId);
+  /* The agent reads this config on every call through the KV cache. An edit
+     the owner just made must be audible on the next call, not five minutes
+     later. */
+  if (updated) await bustNumberCache(env, updated.phone_e164);
+  return updated;
+}
+
 /* ---- Calls ------------------------------------------------------------ */
 
 /* One upsert for every call webhook event.
@@ -138,13 +231,14 @@ export async function upsertCall(env, call) {
 
   await db.prepare(
     `INSERT INTO calls (
-       retell_call_id, business_id, from_number, to_number, direction,
+       retell_call_id, business_id, lead_id, from_number, to_number, direction,
        started_at, ended_at, duration_sec, billed_month,
        disconnect_reason, call_successful, user_sentiment, summary,
        recording_url, transcript, analyzed_at, updated_at
-     ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17)
+     ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18)
      ON CONFLICT (retell_call_id) DO UPDATE SET
        business_id       = COALESCE(excluded.business_id,       calls.business_id),
+       lead_id           = COALESCE(excluded.lead_id,           calls.lead_id),
        from_number       = COALESCE(excluded.from_number,       calls.from_number),
        to_number         = COALESCE(excluded.to_number,         calls.to_number),
        direction         = COALESCE(excluded.direction,         calls.direction),
@@ -163,6 +257,7 @@ export async function upsertCall(env, call) {
   ).bind(
     call.retell_call_id,
     call.business_id ?? null,
+    call.lead_id ?? null,
     call.from_number ?? null,
     call.to_number ?? null,
     call.direction ?? null,
@@ -182,45 +277,249 @@ export async function upsertCall(env, call) {
   ).run();
 }
 
+/* Points a call at its lead and RECOMPUTES the lead's call rollup from the
+   calls table.
+
+   Recomputing rather than incrementing is the whole point: a webhook retry
+   runs this again, and `call_count = call_count + 1` would inflate on every
+   retry. A COUNT(*) over the calls that actually exist cannot drift, for the
+   same reason minutes are a SUM and not a counter. */
+export async function attachCallToLead(env, retellCallId, leadId) {
+  const db = requireDb(env);
+  const now = isoNow();
+
+  await db.batch([
+    db.prepare('UPDATE calls SET lead_id = ?2, updated_at = ?3 WHERE retell_call_id = ?1')
+      .bind(retellCallId, leadId, now),
+
+    db.prepare(
+      `UPDATE leads SET
+         call_count    = (SELECT COUNT(*) FROM calls WHERE lead_id = leads.id),
+         first_call_id = (SELECT retell_call_id FROM calls WHERE lead_id = leads.id
+                           ORDER BY COALESCE(started_at, created_at) ASC  LIMIT 1),
+         last_call_id  = (SELECT retell_call_id FROM calls WHERE lead_id = leads.id
+                           ORDER BY COALESCE(started_at, created_at) DESC LIMIT 1),
+         last_call_at  = (SELECT MAX(COALESCE(started_at, created_at)) FROM calls WHERE lead_id = leads.id),
+         updated_at    = ?2
+       WHERE id = ?1`
+    ).bind(leadId, now)
+  ]);
+}
+
+export async function getCall(env, businessId, retellCallId) {
+  const row = await requireDb(env).prepare(
+    `SELECT c.*, l.name AS lead_name, l.status AS lead_status
+       FROM calls c
+       LEFT JOIN leads l ON l.id = c.lead_id
+      WHERE c.retell_call_id = ? AND c.business_id = ?
+      LIMIT 1`
+  ).bind(retellCallId, businessId).first();
+  return row || null;
+}
+
+/* The transcript is deliberately excluded from the LIST query. It is the
+   largest column in the database and nothing on a list view renders it;
+   selecting it would move megabytes to draw a table of twenty rows. */
+export async function listCalls(env, businessId, options) {
+  const opts = options || {};
+  const limit = Math.min(Math.max(Number(opts.limit) || 50, 1), 200);
+  const offset = Math.max(Number(opts.offset) || 0, 0);
+
+  const result = await requireDb(env).prepare(
+    `SELECT c.retell_call_id, c.business_id, c.lead_id, c.from_number, c.to_number,
+            c.direction, c.started_at, c.ended_at, c.duration_sec, c.billed_month,
+            c.disconnect_reason, c.call_successful, c.user_sentiment, c.summary,
+            c.recording_url, c.analyzed_at, c.created_at,
+            l.name AS lead_name, l.status AS lead_status
+       FROM calls c
+       LEFT JOIN leads l ON l.id = c.lead_id
+      WHERE c.business_id = ?
+      ORDER BY COALESCE(c.started_at, c.created_at) DESC
+      LIMIT ? OFFSET ?`
+  ).bind(businessId, limit, offset).all();
+
+  return (result && result.results) || [];
+}
+
+export async function countCalls(env, businessId) {
+  const row = await requireDb(env)
+    .prepare('SELECT COUNT(*) AS n FROM calls WHERE business_id = ?')
+    .bind(businessId).first();
+  return (row && Number(row.n)) || 0;
+}
+
 /* ---- Leads ------------------------------------------------------------ */
 
-/* Upsert keyed on retell_call_id (UNIQUE), so a webhook retry updates the
-   lead it already created instead of inserting a second one.
+/* THE DEDUPE PATH. Upsert keyed on (business_id, phone).
 
-   Delivery state is deliberately NOT touched on conflict: re-running analysis
-   must never reset a lead that has already been delivered back to 'pending'
-   and cause a duplicate booking on the customer's side. */
-export async function upsertLead(env, lead) {
+   A repeat caller updates the lead they already are. Three rules make that
+   behave the way a contractor expects:
+
+   1. COALESCE(excluded.x, leads.x) — a new call can FILL a blank field but
+      never blanks one. The agent failing to re-ask for an address must not
+      erase the address we already had.
+
+   2. `status` is never touched by a webhook, with one exception: a lead in a
+      TERMINAL state ('completed' or 'lost') that calls again is a new job, so
+      it goes back to 'new' and reappears at the top of the owner's list.
+      A lead mid-pipeline ('contacted', 'qualified', 'booked') keeps its status
+      — the owner's judgement outranks the robot's.
+
+   3. `notes` and delivery state are never touched. Notes are the owner's.
+      Resetting delivery to 'pending' on a repeat call would re-deliver a lead
+      that was already sent and cause a duplicate job on the customer's side.
+
+   A caller with withheld caller ID normalises to phone = NULL. SQLite treats
+   NULLs as distinct in a UNIQUE index, so those correctly become one lead per
+   call rather than every anonymous caller collapsing into a single row.
+
+   Returns the lead id. */
+export async function upsertLeadByPhone(env, lead) {
   const db = requireDb(env);
+  const phone = normalizeE164(lead.phone);
+  const now = isoNow();
+  const newId = lead.id || crypto.randomUUID();
 
-  await db.prepare(
+  const row = await db.prepare(
     `INSERT INTO leads (
-       id, retell_call_id, business_id, name, phone, address,
-       job_description, urgency, preferred_time, updated_at
-     ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10)
-     ON CONFLICT (retell_call_id) DO UPDATE SET
+       id, business_id, name, phone, email, address, service, job_description,
+       urgency, preferred_time, source, status, notes, created_at, updated_at
+     ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?14)
+     ON CONFLICT (business_id, phone) DO UPDATE SET
        name            = COALESCE(excluded.name,            leads.name),
-       phone           = COALESCE(excluded.phone,           leads.phone),
+       email           = COALESCE(excluded.email,           leads.email),
        address         = COALESCE(excluded.address,         leads.address),
+       service         = COALESCE(excluded.service,         leads.service),
        job_description = COALESCE(excluded.job_description, leads.job_description),
        urgency         = COALESCE(excluded.urgency,         leads.urgency),
        preferred_time  = COALESCE(excluded.preferred_time,  leads.preferred_time),
-       updated_at      = excluded.updated_at`
+       status          = CASE WHEN leads.status IN ('completed', 'lost')
+                              THEN 'new' ELSE leads.status END,
+       updated_at      = excluded.updated_at
+     RETURNING id`
   ).bind(
-    lead.id,
-    lead.retell_call_id,
-    lead.business_id ?? null,
+    newId,
+    lead.business_id,
     lead.name ?? null,
-    lead.phone ?? null,
+    phone,
+    lead.email ?? null,
     lead.address ?? null,
+    lead.service ?? null,
     lead.job_description ?? null,
     lead.urgency ?? null,
     lead.preferred_time ?? null,
-    isoNow()
-  ).run();
+    lead.source || 'call',
+    lead.status || 'new',
+    lead.notes ?? null,
+    now
+  ).first();
+
+  return (row && row.id) || newId;
 }
 
-export async function markLeadDelivery(env, retellCallId, status, detail) {
+export const LEAD_STATUSES = [
+  'new', 'contacted', 'qualified', 'booked', 'completed', 'lost'
+];
+
+/* Scoped by business_id, always. There is no unscoped variant to reach for. */
+export async function getLead(env, businessId, leadId) {
+  const row = await requireDb(env)
+    .prepare('SELECT * FROM leads WHERE id = ? AND business_id = ? LIMIT 1')
+    .bind(leadId, businessId)
+    .first();
+  return row || null;
+}
+
+export async function listLeads(env, businessId, options) {
+  const opts = options || {};
+  const limit = Math.min(Math.max(Number(opts.limit) || 50, 1), 200);
+  const offset = Math.max(Number(opts.offset) || 0, 0);
+
+  const where = ['business_id = ?'];
+  const values = [businessId];
+
+  if (opts.status && LEAD_STATUSES.indexOf(opts.status) !== -1) {
+    where.push('status = ?');
+    values.push(opts.status);
+  }
+
+  if (opts.q) {
+    /* LIKE with bound parameters — the search text is never concatenated into
+       SQL. Escaping %, _ and the escape character itself keeps a search for
+       "50%" from matching every row. One bind per column rather than a reused
+       numbered parameter, so the positional ordering stays trivially correct. */
+    const needle = '%' + String(opts.q).replace(/[%_\\]/g, '\\$&') + '%';
+    where.push(
+      "(name LIKE ? ESCAPE '\\' OR phone LIKE ? ESCAPE '\\' " +
+      "OR service LIKE ? ESCAPE '\\' OR address LIKE ? ESCAPE '\\')"
+    );
+    values.push(needle, needle, needle, needle);
+  }
+
+  values.push(limit, offset);
+
+  const result = await requireDb(env).prepare(
+    `SELECT * FROM leads
+      WHERE ` + where.join(' AND ') + `
+      ORDER BY COALESCE(last_call_at, created_at) DESC
+      LIMIT ? OFFSET ?`
+  ).bind(...values).all();
+
+  return (result && result.results) || [];
+}
+
+export async function countLeads(env, businessId) {
+  const row = await requireDb(env)
+    .prepare('SELECT COUNT(*) AS n FROM leads WHERE business_id = ?')
+    .bind(businessId).first();
+  return (row && Number(row.n)) || 0;
+}
+
+/* What a human at the dashboard may change. Webhook-owned rollup columns
+   (call_count, last_call_id, delivery_*) are deliberately absent. */
+const LEAD_WRITABLE = [
+  'name', 'phone', 'email', 'address', 'service',
+  'job_description', 'urgency', 'preferred_time', 'status', 'notes'
+];
+
+export async function updateLead(env, businessId, leadId, patch) {
+  const sets = [];
+  const values = [];
+
+  for (const field of LEAD_WRITABLE) {
+    if (!Object.prototype.hasOwnProperty.call(patch, field)) continue;
+    let value = patch[field];
+    if (typeof value === 'string') value = value.trim();
+    if (value === '') value = null;
+
+    if (field === 'status') {
+      if (LEAD_STATUSES.indexOf(value) === -1) {
+        throw new Error('invalid_status');
+      }
+    }
+    if (field === 'phone') value = normalizeE164(value);
+
+    sets.push(field + ' = ?');
+    values.push(value);
+  }
+
+  if (sets.length === 0) return getLead(env, businessId, leadId);
+
+  sets.push('updated_at = ?');
+  values.push(isoNow(), leadId, businessId);
+
+  /* business_id in the WHERE is the tenant check. An UPDATE that matches no
+     row changes nothing, so a cross-tenant id is a silent no-op here and the
+     caller's subsequent getLead() returns null — which is the 404 the API
+     surfaces. */
+  await requireDb(env).prepare(
+    'UPDATE leads SET ' + sets.join(', ') + ' WHERE id = ? AND business_id = ?'
+  ).bind(...values).run();
+
+  return getLead(env, businessId, leadId);
+}
+
+export async function markLeadDelivery(env, leadId, status, detail) {
   await requireDb(env).prepare(
     `UPDATE leads
         SET delivery_status = ?2,
@@ -228,9 +527,9 @@ export async function markLeadDelivery(env, retellCallId, status, detail) {
             booking_ref     = COALESCE(?4, booking_ref),
             delivered_at    = CASE WHEN ?2 = 'sent' THEN ?5 ELSE delivered_at END,
             updated_at      = ?5
-      WHERE retell_call_id = ?1`
+      WHERE id = ?1`
   ).bind(
-    retellCallId,
+    leadId,
     status,
     (detail && detail.error) ?? null,
     (detail && detail.bookingRef) ?? null,
@@ -240,15 +539,19 @@ export async function markLeadDelivery(env, retellCallId, status, detail) {
 
 /* ---- Metering --------------------------------------------------------- */
 
-/* Derived, never stored — see schema.sql. Returns whole minutes rounded up,
-   which is how the 120-minute allowance on /agent/ and /pricing/ is worded. */
+/* Derived, never stored — see schema.sql.
+
+   Whole minutes rounded UP over the month's total seconds, which is how the
+   120-minute allowance is worded on /agent/ and /pricing/. Rounding the total
+   rather than each call is deliberate: per-call rounding would bill a full
+   minute for each of six ten-second hangups. */
 export async function minutesUsed(env, businessId, month) {
   const row = await requireDb(env).prepare(
     'SELECT COALESCE(SUM(duration_sec), 0) AS seconds FROM calls WHERE business_id = ? AND billed_month = ?'
   ).bind(businessId, month).first();
 
   const seconds = (row && Number(row.seconds)) || 0;
-  return Math.ceil(seconds / 60);
+  return { seconds: seconds, minutes: Math.ceil(seconds / 60) };
 }
 
 export async function usageSummary(env, business, atIso) {
@@ -258,9 +561,16 @@ export async function usageSummary(env, business, atIso) {
 
   return {
     month: month,
-    minutesUsed: used,
+    secondsUsed: used.seconds,
+    minutesUsed: used.minutes,
     minutesIncluded: included,
-    minutesRemaining: Math.max(0, included - used),
-    overage: used > included
+    minutesRemaining: Math.max(0, included - used.minutes),
+    /* Guarded against a business row with minutes_included = 0, which would
+       otherwise make this Infinity and render as "Infinity%" on the dashboard. */
+    percentUsed: included > 0
+      ? Math.min(100, Math.round((used.minutes / included) * 100))
+      : 0,
+    overage: used.minutes > included,
+    overageMinutes: Math.max(0, used.minutes - included)
   };
 }

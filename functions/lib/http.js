@@ -97,3 +97,76 @@ export function stringifyVars(source) {
   }
   return out;
 }
+
+/* 'YYYY-MM-DD' in the given IANA zone. The dashboard's "today" must be the
+   OWNER's today: at 9pm in Portland it is already tomorrow in UTC, and an
+   overview that hides tonight's bookings four hours early is worse than no
+   overview.
+
+   en-CA is used for the same reason billedMonth does — its short date format
+   is ISO-ordered, so formatToParts gives the pieces without any assembly
+   ambiguity. Falls back to the UTC date if the zone is unrecognised, so a typo
+   in a business record degrades to a slightly-wrong day rather than throwing
+   inside a request handler. */
+export function localDate(iso, timeZone) {
+  const date = iso ? new Date(iso) : new Date();
+  if (Number.isNaN(date.getTime())) return null;
+
+  try {
+    const parts = new Intl.DateTimeFormat('en-CA', {
+      timeZone: timeZone || 'UTC',
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit'
+    }).formatToParts(date);
+
+    let year = '', month = '', day = '';
+    for (const part of parts) {
+      if (part.type === 'year') year = part.value;
+      if (part.type === 'month') month = part.value;
+      if (part.type === 'day') day = part.value;
+    }
+    if (year && month && day) return year + '-' + month + '-' + day;
+  } catch (e) {
+    console.warn('localDate: unusable timezone, falling back to UTC');
+  }
+
+  return date.toISOString().slice(0, 10);
+}
+
+/* The UTC instant at which the business's current billing month began.
+
+   Built by asking what the LOCAL month is, then walking back from the UTC
+   midnight of its first day by more than any real UTC offset (UTC-12 to
+   UTC+14) and re-checking. Doing the offset arithmetic directly would need a
+   table of zones and would be wrong twice a year at the DST boundary; letting
+   Intl answer "what local date is this instant" and searching for the crossing
+   cannot be, because Intl is the thing that knows.
+
+   Used to bound "leads this month" and "calls this month" so those counts
+   agree with the minutes number sitting next to them on the same screen. */
+export function monthStartUtc(timeZone, atIso) {
+  const month = billedMonth(atIso, timeZone);        // 'YYYY-MM', business-local
+  if (!month) return null;
+
+  const firstLocalDay = month + '-01';
+
+  /* Start 14 hours BEFORE the UTC midnight of that local date — further back
+     than the largest positive offset (UTC+14) — then step forward an hour at a
+     time until the local date is the first of the month. The first such
+     instant is the local midnight, expressed in UTC. */
+  let cursor = Date.parse(firstLocalDay + 'T00:00:00Z') - 14 * 3600 * 1000;
+  const limit = cursor + 30 * 3600 * 1000;           // covers UTC+14 .. UTC-12
+
+  while (cursor <= limit) {
+    const iso = new Date(cursor).toISOString();
+    if (localDate(iso, timeZone) === firstLocalDay) {
+      return iso.replace(/\.\d{3}Z$/, 'Z');
+    }
+    cursor += 3600 * 1000;
+  }
+
+  /* Unreachable for any real zone. Degrade to UTC month start rather than
+     returning null and making every caller handle it. */
+  return firstLocalDay + 'T00:00:00Z';
+}

@@ -1,86 +1,114 @@
-# Shug — Wrangler configuration.
+# Shug — Wrangler configuration for joinshug.com.
+#
+# ===========================================================================
+# READ THIS BEFORE CHANGING ANYTHING HERE
+# ===========================================================================
+#
+# joinshug.com is a Cloudflare WORKER with static assets. It is NOT a Pages
+# project. That was verified against the live account, not assumed:
+#
+#   wrangler pages project list                   -> empty (no Pages projects)
+#   wrangler pages deployment list -p joinshug    -> "Project not found"
+#   wrangler deployments list                     -> real worker deployments
+#
+# An earlier version of this file described the project as Pages and therefore
+# omitted `main` and `[assets]`. The consequence was that everything under
+# functions/ — a Pages-only routing convention — was never reachable:
+# https://joinshug.com/api/retell/inbound returned 404 in production.
+#
+# `main` + `[assets]` below is what fixes that. See worker/index.js.
 #
 # ---------------------------------------------------------------------------
-# THIS FILE IS DELIBERATELY LOCAL-DEVELOPMENT ONLY.
-#
-# It has NO `pages_build_output_dir` key, and that omission is intentional.
-# Cloudflare's rule: once a Pages project deploys with a wrangler file that
-# sets `pages_build_output_dir`, THAT FILE BECOMES THE SOURCE OF TRUTH and the
-# matching settings in the dashboard become read-only.
-#
-# joinshug.com is already live and configured through the dashboard, so taking
-# that over is a decision to make deliberately, not a side effect of adding a
-# config file. Without the key, this file only ever feeds `wrangler pages dev`
-# locally and production keeps reading the dashboard.
-#
-# If you later DO want config-as-code, add:
-#     pages_build_output_dir = "."
-# and understand that the dashboard's build settings stop being editable.
-# ---------------------------------------------------------------------------
-#
 # Local development:
-#   wrangler pages dev . --local
+#   wrangler dev                 (local D1 + KV, no production credentials)
+#
+# Deploy:
+#   wrangler deploy
 #
 # Secrets for local dev come from .dev.vars (gitignored), never from this file.
 # This file is committed, so nothing secret may ever appear in it.
+# ===========================================================================
 
 name = "joinshug"
-compatibility_date = "2026-08-29"
+main = "worker/index.js"
+
+# Matches the compatibility date of the currently-deployed worker version.
+# Changing it changes runtime behaviour, so it moves deliberately or not at all.
+compatibility_date = "2026-08-28"
 
 # ---------------------------------------------------------------------------
-# D1 — businesses, calls, leads. Source of truth.
+# Static assets — the 28-page marketing site, served from the repo root.
+# ---------------------------------------------------------------------------
+[assets]
+directory = "."
+binding = "ASSETS"
+
+# run_worker_first is THE reason the marketing site is unaffected by any of
+# this. The worker script runs ONLY for /api/*. Every other request — every
+# marketing page, the stylesheet, the images, /app/ — goes straight to the
+# asset store without entering worker/index.js at all. Same behaviour as the
+# current deployment, same cost.
+run_worker_first = ["/api/*"]
+
+# Both values below are the runtime DEFAULTS, stated explicitly because they
+# are what production does today and they must not drift:
 #
-# Create it once, then paste the id printed by the create command:
-#   wrangler d1 create shug
+#   html_handling "auto-trailing-slash" — /pricing serves /pricing/index.html,
+#     and /404.html 307s to /404. Confirmed live.
+#
+#   not_found_handling "none" — a missing path returns a bare 404 with an empty
+#     body. Confirmed live (curl /definitely-not-a-page -> 404, 0 bytes).
+#     NOTE: the repo has a branded 404.html that is therefore never shown.
+#     Setting this to "404-page" would fix that. It is deliberately NOT changed
+#     in the same deploy that introduces the worker entry point — one change at
+#     a time on a live site. See SESSION_LOG.md.
+html_handling = "auto-trailing-slash"
+not_found_handling = "none"
+
+# ---------------------------------------------------------------------------
+# D1 — source of truth. Businesses, users, sessions, calls, leads, bookings,
+# follow-ups, notifications.
+#
 #   wrangler d1 execute shug --local  --file=./schema.sql
 #   wrangler d1 execute shug --remote --file=./schema.sql
-#
-# The database_id below is a placeholder. `wrangler pages dev --local` works
-# without a real id; deploying or running --remote does not.
 # ---------------------------------------------------------------------------
-
 [[d1_databases]]
 binding = "DB"
 database_name = "shug"
-database_id = "REPLACE_WITH_ID_FROM_wrangler_d1_create"
+database_id = "03557859-24f8-45e0-bcc6-9368bae9f3d1"
 
 # ---------------------------------------------------------------------------
 # KV — read-through cache for the number -> business lookup only.
 #
-#   wrangler kv namespace create CONFIG_CACHE
-#
-# This is a cache and nothing else. Wiping it costs latency on the next call,
-# never correctness — see functions/lib/store.js.
+# This is a cache and nothing else. It is never a source of truth, so wiping it
+# costs latency on the next call and never correctness. See functions/lib/store.js.
 # ---------------------------------------------------------------------------
-
 [[kv_namespaces]]
 binding = "CONFIG_CACHE"
-id = "REPLACE_WITH_ID_FROM_wrangler_kv_namespace_create"
+id = "6f016140a69d4130bce349db03bb2307"
 
 # ---------------------------------------------------------------------------
 # KV — Jobber OAuth token store.
 #
-#   wrangler kv namespace create JOBBER_TOKENS
-#
-# Declared here so `wrangler pages dev` can run the Jobber draft locally.
-# The Jobber endpoints are NOT deployed and the draft is untouched.
+# Declared so `wrangler dev` can exercise functions/api/jobber/ locally. Those
+# endpoints are NOT routed in worker/index.js and are therefore not live.
+# See NEEDS_CONFIG.md.
 # ---------------------------------------------------------------------------
-
 [[kv_namespaces]]
 binding = "JOBBER_TOKENS"
-id = "REPLACE_WITH_ID_FROM_wrangler_kv_namespace_create"
+id = "439992672db24d6eb504c9842f1810d5"
 
 # ---------------------------------------------------------------------------
 # Plaintext variables. Anything secret belongs in .dev.vars locally and in
-# Pages -> Settings -> Variables and secrets (encrypted) in production.
+# `wrangler secret put` / the dashboard in production.
 # ---------------------------------------------------------------------------
-
 [vars]
 # Retell signs the event webhook. Whether it also signs the INBOUND-call
-# webhook was not confirmed against Retell's documentation, so inbound
-# defaults to verify-if-present rather than a hard requirement that could
-# silently stop every call from being answered.
-#
-# Turn this on only after confirming a signature actually arrives — check the
-# logs for "unsigned request accepted". See functions/api/retell/inbound.js.
+# webhook is not documented, so inbound defaults to verify-if-present rather
+# than a hard requirement that could silently stop every call from being
+# answered. Turn this on only after confirming a signature actually arrives —
+# check the logs for "unsigned request accepted".
 RETELL_REQUIRE_INBOUND_SIGNATURE = "0"
+
+# Session lifetime for the /app/ dashboard, in hours. 720h = 30 days.
+SESSION_TTL_HOURS = "720"

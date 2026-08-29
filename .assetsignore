@@ -1,0 +1,31 @@
+# Files in the repo root that must NOT be uploaded as public static assets.
+#
+# The repo root IS the asset directory (see wrangler.toml [assets]), so without
+# this file every path below would be fetchable on joinshug.com. Server code and
+# schema being publicly readable is not a secret leak — there are no secrets in
+# them — but it is needless attack surface and it wastes the asset budget.
+#
+# Syntax is .gitignore syntax. _headers, _redirects and this file are consumed
+# as configuration by the runtime and are never served, so they need no entry.
+
+# Server-side code. Runs in the worker; must never be served as a file.
+worker/
+functions/
+
+# Schema, migrations, seeds, tests, maintenance scripts.
+migrations/
+tests/
+tools/
+*.sql
+
+# Repo documentation and configuration.
+*.md
+wrangler.toml
+package.json
+.dev.vars.example
+.editorconfig
+
+# Local state that should never reach a deploy in the first place.
+.wrangler/
+node_modules/
+.DS_Store
