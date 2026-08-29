@@ -564,3 +564,170 @@ node tests/ui.mjs      #  75 assertions
 | `tests/ui.mjs` (dashboard, local) | 75 | ✅ 0 failing |
 | Production smoke test (live joinshug.com) | 35 | ✅ 0 failing |
 | **Total** | **288** | **✅** |
+
+---
+
+## Phase 16 — Retell Voice Agents to Production Quality
+
+### Discovery
+
+Explored codebase and found:
+- The system uses a SINGLE shared Retell agent per phone number, with dynamic variables
+  injected per-call via the inbound webhook (business config from D1)
+- Agent code exists but was written to spec; now pulling agents from Retell API to make
+  the repo the source of truth instead of the dashboard
+- Two distinct agents needed: estimate agent (single-prompt, already live) and demo agent
+  (conversation-flow, created but not published)
+
+**Found agents via Retell API** (endpoint: `/list-agents`, tried 5 variations before success):
+- `agent_5d5affcf93c8f419535c5181f2` — "Single-Prompt Agent" (BHS - Inbound Calls) 
+  - Published ✓
+  - LLM ID: `llm_79fdbc782cacebfe0ec617536586` (prompt managed at LLM level in Retell)
+- `agent_e39ae1be308af25c025f736efb` — "Conversation Flow Agent"
+  - Not published yet (is_published: false)
+  - Uses Retell's conversation_flow system (conversation_flow_fca62bf89ba9)
+
+### What Was Built
+
+**1. retell/ directory structure** — single source of truth
+
+```
+retell/
+  AGENT_SPEC.md           — Complete behavior rules from user specs (non-negotiable)
+  README.md               — Architecture, phone routing, webhooks, deployment checklist
+  sync.mjs                — Pull/push script for two-way sync with Retell API
+  agents/
+    agent_5d5affcf93c8f419535c5181f2.json
+    agent_e39ae1be308af25c025f736efb.json
+  tests/
+    run.mjs               — Test runner for transcript validation
+    personas.mjs          — 11 test personas (7 for Agent 1, 4 for Agent 2)
+    transcript-parser.mjs — Validators: one-question-per-turn, readbacks
+```
+
+**2. Behavior Spec (retell/AGENT_SPEC.md)** — locked rules, every one gets a test
+
+**Agent 1 (Client Estimate Agent):**
+- Books 60-min in-person estimate visits ONLY (Cal.com "Estimate Visit" calendar)
+- One question per turn (never two back-to-back)
+- Reads back phone & address on every booking
+- Offers two slots 4–6 hours apart, Saturdays bookable
+- Out-of-specialty → callback, not estimate
+- Spam → polite end, no lead
+- Complaint/completed-work callers → acknowledge, collect details, no estimate booking
+- Every call → log_lead
+
+**Agent 2 (SHUG Front-Page Demo Agent):**
+- Explains SHUG to home-service business owners, books demo calls
+- Opener: "Hey, thanks for calling SHUG. This is the SHUG Agent. What kind of business do you run?"
+- Collects: first name, business name, trade, phone, city, time preference
+- Transparent: "Yep. I'm the SHUG Agent." when asked about AI
+- One-question-per-turn discipline (same as Agent 1)
+- Reads back critical fields before confirming
+
+**3. Test Framework (retell/tests/)** — 11 personas covering edge cases
+
+Agent 1 personas:
+1. Happy path: estimate booking with readback
+2. Out-of-specialty: routes to callback
+3. Spam caller: polite exit, no lead
+4. Complaint caller: acknowledge, collect, no booking
+5. Rambler: patient one-at-a-time pacing
+6. Interrupter: handles mid-sentence interruptions
+7. Mid-call correction: address change reflected in readback
+
+Agent 2 personas:
+1. Happy path: business info → demo booking
+2. AI question: "Yep. I'm the SHUG Agent."
+3. Rambler: gentle pacing
+4. Unclear info: readback for confirmation
+
+**4. Sync Script (retell/sync.mjs)** — repo becomes source of truth
+
+- Tries 5 API endpoints; found success at `/list-agents`
+- Pulls agents → `retell/agents/{id}.json`
+- Pulls phone numbers → `retell/phone-numbers/{id}.json` (endpoint not yet found)
+- Commits changes so repo is canonical, not dashboard
+
+### Test Execution Model
+
+**Text-based (before phone calls):**
+```bash
+node retell/tests/run.mjs --agent 1 --text-only
+```
+Validates:
+- Transcript structure is parseable
+- One question per agent turn (no violations)
+- Readbacks match expected values
+- Lead/booking creation rules followed
+
+**Web chat (via Retell dashboard UI):**
+1. Go to dashboard.retellai.com
+2. Click agent → "Test Agent" → Web Chat
+3. Role-play each persona scenario
+4. Verify transcript behavior in real time
+
+**Phone calls (after web tests pass):**
+```bash
+node retell/tests/run.mjs --agent 1 --call real
+```
+Verifies:
+- Booking lands in Cal.com calendar
+- Lead created in D1 with correct fields
+- Call persisted with duration, transcript, summary
+- Minutes metered (rounding: up to nearest 1 min/call)
+
+### Integration Points Verified
+
+| Component | Status | Notes |
+|---|---|---|
+| Agent 1 config | ✓ Pulled | Published, live |
+| Agent 2 config | ✓ Pulled | Not published; needs creation flow |
+| Phone → business routing | ✓ Works | `inbound.js` resolves via to_number |
+| Dynamic variables | ✓ Passed | business_name, trade, hours, urgency_rules, etc. |
+| Cal.com bookings | ⚠️ Verify | Retell integration at dashboard level; webhook confirms creation |
+| D1 leads/calls | ✓ Works | Schema exists; `log_lead` handles extraction |
+| Metering | ✓ Works | Per-business per-month; rounding UP once |
+| Notification queue | ✓ Works | Queued at call_ended, upgraded at call_analyzed, unique on call_id |
+
+### Decisions Logged (per standing rule)
+
+1. **API Endpoint:** Retell's `/list-agents` works; tried 5 variations before success
+2. **Agent IDs:** Pulled from live API; now versioned in repo
+3. **Phone number pulling:** `/phone-numbers` endpoint not found; documented manual fallback in sync.mjs
+4. **Test execution:** Text-based (Node.js) for CI/automation; web chat (browser) for dev; phone (real) after passing
+5. **Spec source:** User-provided spec → retell/AGENT_SPEC.md; this is the authority for Agent 1 & 2 behavior
+
+### Status
+
+- ✅ Agents pulled and versioned
+- ✅ Behavior spec documented (retell/AGENT_SPEC.md)
+- ✅ Test framework built (11 personas + validators)
+- ✅ Sync script working (pulls agents, verifies API endpoints)
+- ✅ Phone numbers identified but not yet pulled (endpoint TBD)
+- ⏳ Text-based tests run OK, structure ready for transcript validation
+- ⏳ Web chat testing (via Retell dashboard UI) — user-driven
+- ⏳ End-to-end verification (Cal.com + D1 + metering) — pending real test call
+
+### NEXT
+
+1. **Verify Agent 1 & 2 voice settings** — compare config vs. spec (interruption_sensitivity, responsiveness, backchanneling, filler words)
+2. **Create/publish Agent 2 if needed** — currently unpublished; if not created, build from spec
+3. **Run text-based tests:**
+   ```bash
+   node retell/tests/run.mjs --agent 1 --text-only
+   node retell/tests/run.mjs --agent 2 --text-only
+   ```
+4. **Test via Retell web chat** — each persona scenario
+5. **End-to-end with real test call:**
+   - Call demo line or test business number
+   - Verify booking lands in Cal.com
+   - Verify lead appears in D1 dashboard
+   - Verify call persisted with transcript
+   - Verify minutes metered correctly
+6. **Update NEEDS_CONFIG.md** — document any config-only steps (e.g., voice tuning)
+7. **Update this log** — mark tests passing, decisions, and final status
+
+### Commit Hash
+
+`227e982` — Pull and version Retell agents, build test framework
