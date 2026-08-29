@@ -1,0 +1,32 @@
+{
+  "agent_id": "agent_e39ae1be308af25c025f736efb",
+  "channel": "voice",
+  "last_modification_timestamp": 1787927895501,
+  "agent_name": "Conversation Flow Agent",
+  "response_engine": {
+    "conversation_flow_id": "conversation_flow_fca62bf89ba9",
+    "type": "conversation-flow",
+    "version": 0
+  },
+  "language": "en-US",
+  "data_storage_setting": "everything",
+  "opt_in_signed_url": false,
+  "version": 0,
+  "assigned_tags": [],
+  "is_published": false,
+  "post_call_analysis_model": "gpt-4.1",
+  "pii_config": {
+    "mode": "post_call",
+    "categories": []
+  },
+  "handbook_config": {
+    "ai_disclosure": true,
+    "default_personality": true
+  },
+  "timezone": "America/Los_Angeles",
+  "voice_id": "retell-Cimo",
+  "max_call_duration_ms": 3600000,
+  "interruption_sensitivity": 0.9,
+  "allow_user_dtmf": true,
+  "user_dtmf_options": {}
+}
