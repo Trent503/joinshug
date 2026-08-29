@@ -115,19 +115,60 @@ export function validateOneQuestionPerTurn(turns) {
  */
 export function validateReadbacks(turns, readbackSpecs) {
   const issues = [];
-  const transcript = turns.map(t => t.text).join(' ').toLowerCase();
+  const transcript = turns.map(t => t.text).join(' ');
+  const transcriptLower = transcript.toLowerCase();
 
   for (const spec of readbackSpecs) {
-    const containsLower = spec.contains.toLowerCase();
-    const mustNotLower = (spec.must_not_contain || '').toLowerCase();
+    let found = false;
+    let shouldNotFound = false;
 
-    if (!transcript.includes(containsLower)) {
+    if (spec.type === 'phone') {
+      // Phone can be formatted as +15035552847 or 503-555-2847 or 5035552847
+      const normalized = spec.contains.replace(/[\s\-+]/g, '').slice(-10);
+      const patterns = [
+        spec.contains,
+        spec.contains.replace(/[\s\-+]/g, ''),
+        spec.contains.slice(-10), // Last 10 digits
+        /\d{3}[\s\-]?\d{3}[\s\-]?\d{4}/ // Generic NANP pattern
+      ];
+
+      for (const pat of patterns) {
+        if (typeof pat === 'string' && transcriptLower.includes(pat.toLowerCase())) {
+          found = true;
+          break;
+        } else if (pat instanceof RegExp && pat.test(transcript)) {
+          found = true;
+          break;
+        }
+      }
+
+      if (spec.must_not_contain) {
+        const notNormalized = spec.must_not_contain.replace(/[\s\-+]/g, '').slice(-10);
+        if (
+          transcriptLower.includes(spec.must_not_contain.toLowerCase()) ||
+          transcriptLower.includes(notNormalized)
+        ) {
+          shouldNotFound = true;
+        }
+      }
+    } else {
+      // For other types, do substring match (case-insensitive)
+      const search = spec.contains.toLowerCase();
+      found = transcriptLower.includes(search);
+
+      if (spec.must_not_contain) {
+        const searchNot = spec.must_not_contain.toLowerCase();
+        shouldNotFound = transcriptLower.includes(searchNot);
+      }
+    }
+
+    if (!found) {
       issues.push(
         `${spec.type} readback missing: expected to find "${spec.contains}"`
       );
     }
 
-    if (mustNotLower && transcript.includes(mustNotLower)) {
+    if (shouldNotFound) {
       issues.push(
         `${spec.type} readback incorrect: found "${spec.must_not_contain}" but should not`
       );

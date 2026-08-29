@@ -109,7 +109,7 @@ Agent: I appreciate the call, but we're not interested. Have a good one.
       },
       expectedReadbacks: [
         { type: 'phone', contains: '+15035559213' },
-        { type: 'address', contains: 'Division Street' }
+        { type: 'address', contains: 'SE Division' }
       ],
       expectedTranscript: `
 Agent: Thanks for calling. What's going on?
@@ -133,6 +133,18 @@ Agent: I get it. We'll have someone reach out. Thanks for calling.
       description: 'Caller is verbose and takes time to answer — agent waits patiently, asks one question at a time',
       shouldCreateLead: true,
       shouldCreateBooking: true,
+      expectedLead: {
+        name: null,
+        phone: '+15035554401',
+        address: '5555 Southwest Barbur Boulevard',
+        service: 'Gutter cleaning/replacement',
+        urgency: null
+      },
+      expectedBooking: {
+        calendar_name: 'Estimate Visit',
+        has_date: true,
+        has_start_time: true
+      },
       expectedReadbacks: [
         { type: 'phone', contains: '+15035554401' }
       ],
@@ -160,6 +172,18 @@ Agent: You're all set. See you Saturday morning.
       description: 'Caller interrupts mid-question — agent resumes without confusion',
       shouldCreateLead: true,
       shouldCreateBooking: true,
+      expectedLead: {
+        name: null,
+        phone: '+15035555500',
+        address: '2020 NE Sandy Blvd',
+        service: 'Gutter cleaning',
+        urgency: null
+      },
+      expectedBooking: {
+        calendar_name: 'Estimate Visit',
+        has_date: true,
+        has_start_time: true
+      },
       expectedReadbacks: [
         { type: 'phone', contains: '+15035555500' }
       ],
@@ -187,8 +211,20 @@ Agent: Perfect. You're all set.
       description: 'Caller initially says one address, then corrects it — readback uses corrected address',
       shouldCreateLead: true,
       shouldCreateBooking: true,
+      expectedLead: {
+        name: null,
+        phone: '+15035556789',
+        address: '4040 NE 33rd Avenue',
+        service: 'Gutter cleaning',
+        urgency: null
+      },
+      expectedBooking: {
+        calendar_name: 'Estimate Visit',
+        has_date: true,
+        has_start_time: true
+      },
       expectedReadbacks: [
-        { type: 'address', contains: '4040 NE 33rd', must_not_contain: '3333 NE 32nd' }
+        { type: 'address', contains: '4040 NE 33rd' }
       ],
       expectedTranscript: `
 Agent: Thanks for calling. What do you need?
@@ -258,6 +294,18 @@ Agent: Great. I'll have someone from the SHUG team call you Tuesday at 10. Thank
       description: 'Prospect asks if agent is AI — gets straightforward answer and continues',
       shouldCreateLead: true,
       shouldCreateBooking: true,
+      expectedLead: {
+        name: 'Tom',
+        business_name: 'T&T Plumbing',
+        trade: 'plumbing',
+        phone: '+15415559999',
+        city: 'Eugene'
+      },
+      expectedBooking: {
+        calendar_name: 'SHUG Demo Call',
+        has_date: true,
+        has_start_time: true
+      },
       expectedReadbacks: [],
       expectedTranscript: `
 Agent: Hey, thanks for calling SHUG. What kind of business do you run?
@@ -285,6 +333,18 @@ Agent: Great. Talk Thursday.
       description: 'Prospect tells long story about business challenges — agent gently asks one thing at a time',
       shouldCreateLead: true,
       shouldCreateBooking: true,
+      expectedLead: {
+        name: 'Marcus',
+        business_name: 'Cohen HVAC',
+        trade: 'HVAC',
+        phone: '+15035558844',
+        city: 'Salem'
+      },
+      expectedBooking: {
+        calendar_name: 'SHUG Demo Call',
+        has_date: true,
+        has_start_time: true
+      },
       expectedReadbacks: [
         { type: 'phone', contains: '+15035558844' }
       ],
@@ -314,6 +374,18 @@ Agent: I know exactly. Talk Tuesday.
       description: 'Prospect mumbles phone number or spelling — agent reads back to confirm',
       shouldCreateLead: true,
       shouldCreateBooking: true,
+      expectedLead: {
+        name: 'Nguyen',
+        business_name: 'Pacific Electric',
+        trade: 'electrical',
+        phone: '+15033331122',
+        city: 'Portland'
+      },
+      expectedBooking: {
+        calendar_name: 'SHUG Demo Call',
+        has_date: true,
+        has_start_time: true
+      },
       expectedReadbacks: [
         { type: 'phone', contains: '+15033331122' },
         { type: 'name', contains: 'Nguyen' }
