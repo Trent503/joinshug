@@ -529,9 +529,23 @@ export async function updateLead(env, businessId, leadId, patch) {
      row changes nothing, so a cross-tenant id is a silent no-op here and the
      caller's subsequent getLead() returns null — which is the 404 the API
      surfaces. */
-  await requireDb(env).prepare(
-    'UPDATE leads SET ' + sets.join(', ') + ' WHERE id = ? AND business_id = ?'
-  ).bind(...values).run();
+  try {
+    await requireDb(env).prepare(
+      'UPDATE leads SET ' + sets.join(', ') + ' WHERE id = ? AND business_id = ?'
+    ).bind(...values).run();
+  } catch (e) {
+    // Detect UNIQUE constraint failure on the (business_id, phone) index.
+    // SQLite error format is typically "UNIQUE constraint failed: leads.business_id,leads.phone"
+    // but can also be "UNIQUE constraint failed: ux_leads_business_phone" depending on the driver.
+    if (e && e.message && (
+      e.message.startsWith('UNIQUE constraint failed: leads') ||
+      e.message.includes('ux_leads_business_phone')
+    )) {
+      throw new Error('phone_already_exists');
+    }
+    // Re-throw any other error to preserve existing behavior
+    throw e;
+  }
 
   return getLead(env, businessId, leadId);
 }
